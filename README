@@ -1,0 +1,33 @@
+Tech Talk Platinum Supreme Edition (PSE)
+superior technical demonstration software
+-----------------------------------------
+Copyright (C) 2010 Red Hat Inc.
+
+For instructions on using Tech Talk PSE or creating a new talk or
+giving feedback or submitting patches (and much more), please see the
+Unix manual page, 'techtalk-pse(1)':
+
+  man techtalk-pse
+
+For examples, see the 'examples' directory in the source.
+
+If you have been given a Tech Talk PSE directory of files and have no
+idea what to do, change into the directory containing the files and
+run the command 'techtalk-pse'.  If the talk is in the form of a ZIP
+or .tar.gz file, run 'techtalk-pse /path/to/talk.zip'.
+
+For dependencies, run './configure'.  In brief you will need:
+
+  - A Linux-like system
+
+  - Perl 5
+
+  - Perl Gtk
+
+  - Perl Gtk MozEmbed (http://search.cpan.org/~tsch/Gtk2-MozEmbed/)
+
+To build from source:
+
+  ./configure
+  make
+  sudo make install
