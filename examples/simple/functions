@@ -1,0 +1,4 @@
+export PS1="$ "
+export HISTFILE=/tmp/history
+
+TERMINAL="gnome-terminal --window --geometry=+100+100 --hide-menubar --title='Tech Talk PSE Simple example' -e '/bin/bash --norc'"

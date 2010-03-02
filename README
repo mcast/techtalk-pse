@@ -13,8 +13,10 @@ For examples, see the 'examples' directory in the source.
 
 If you have been given a Tech Talk PSE directory of files and have no
 idea what to do, change into the directory containing the files and
-run the command 'techtalk-pse'.  If the talk is in the form of a ZIP
-or .tar.gz file, run 'techtalk-pse /path/to/talk.zip'.
+run the command 'techtalk-pse':
+
+  cd /path/to/talk/
+  techtalk-pse
 
 For dependencies, run './configure'.  In brief you will need:
 
@@ -22,9 +24,9 @@ For dependencies, run './configure'.  In brief you will need:
 
   - Perl 5
 
-  - Perl Gtk
+  - Perl Gtk2
 
-  - Perl Gtk MozEmbed (http://search.cpan.org/~tsch/Gtk2-MozEmbed/)
+  - Perl Gtk2 MozEmbed (http://search.cpan.org/~tsch/Gtk2-MozEmbed/)
 
 To build from source:
 
