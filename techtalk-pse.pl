@@ -25,6 +25,7 @@ use utf8;
 
 use Pod::Usage;
 use Getopt::Long;
+use Cwd qw(getcwd abs_path);
 use Glib qw(TRUE FALSE);
 use Gtk2 -init;
 use Gtk2::MozEmbed;
@@ -140,8 +141,11 @@ Display version number and exit.
 
 =cut
 
+my $mozembed;
+
 GetOptions ("help|?" => \$help,
             "last" => \$last,
+            "mozembed" => \$mozembed,
             "n=s" => \$start,
             "splash!" => \$splash,
             "start=s" => \$start,
@@ -161,7 +165,30 @@ if ($version) {
 die "techtalk-pse: cannot use --start and --last options together\n"
     if defined $last && defined $start;
 
+# --mozembed runs Gtk2::MozEmbed as a subprocess, because MozEmbed
+# is very crashy.
+if ($mozembed) {
+    my $w = Gtk2::Window->new ();
+    my $moz = Gtk2::MozEmbed->new ();
+
+    $w->signal_connect (delete_event => sub {
+        Gtk2->main_quit;
+        return FALSE;
+                        });
+
+    $w->set_default_size (600, 400);
+    $w->add ($moz);
+    $w->show_all ();
+    $moz->load_url ($ARGV[0]);
+    Gtk2->main;
+
+    exit 0;
+}
+
 die "techtalk-pse: too many arguments\n" if @ARGV >= 2;
+
+# Get the true name of the program.
+$0 = abs_path ($0);
 
 # Locate the talk.
 if (@ARGV > 0) {
@@ -175,11 +202,9 @@ if (@ARGV > 0) {
     }
 }
 
-# MozEmbed initialization.
-Gtk2::MozEmbed->set_profile_path ("$ENV{HOME}/.@PACKAGE@", "Tech Talk PSE");
-
 # Get the files.
 my @files;
+my %files;
 my %groups;
 sub reread_directory
 {
@@ -187,7 +212,7 @@ sub reread_directory
     %groups = ();
 
     foreach (glob ("*")) {
-        if (/^(\d+)([A-Z])?(?:-.*)\.(html|sh|txt)$/) {
+        if (/^(\d+)([A-Z])?(?:-.*)\.(html|sh)$/) {
             print STDERR "reading $_\n" if $verbose;
 
             my $seq = $1;
@@ -198,6 +223,7 @@ sub reread_directory
 
             my $h = { name => $_, seq => $1, pos => $2, ext => $3 };
             push @files, $h;
+            $files{$_} = $h;
 
             $groups{$seq} = [] unless exists $groups{$seq};
             push @{$groups{$seq}}, $h;
@@ -241,13 +267,69 @@ if ($splash) {
     Gtk2->main;
 }
 
+my $quit;
+while (!$quit) {
+    if (defined $current) {
+        my $go = show_slide ($current);
+        if (defined $go && ($go eq "PREV" || $go eq "NEXT")) {
+            print STDERR "go = $go\n" if $verbose;
+            my $i = 0;
+          FOUND: {
+              foreach (@files) {
+                  last FOUND if $files[$i]->{name} eq $current->{name};
+                  $i++;
+              }
+              die "internal error: cannot find \$current in \@files"
+            }
+            print STDERR "found current entry at i = $i\n" if $verbose;
+            $i-- if $go eq "PREV" && $i > 0;
+            $i++ if $go eq "NEXT" && $i+1 < @files;
+            $current = $files[$i];
+        }
+    } else {
+        print "No slides found.  Press any key to reload directory ...\n";
+        $_ = <STDIN>;
+    }
 
+    reread_directory ();
 
+    if (defined $current && !exists $files{$current->{name}}) {
+        # Current slide was deleted.
+        undef $current;
+        $current = $files[0] if @files;
+    }
+}
 
+sub show_slide {
+    my $slide = shift;
 
-
-
-
+    if ($slide->{ext} eq "html") {
+        # MozEmbed is incredibly crashy, so we run ourself as a
+        # subprocess, so when it segfaults we don't care.
+        my $cwd = getcwd;
+        my $url = "file://" . $cwd . "/" . $slide->{name};
+        my @cmd = ($0, "--mozembed", $url);
+        system (@cmd);
+        die "failed to execute subcommand: $!\n" if $? == -1;
+        if ($? & 127) {
+            # Subcommand probably segfaulted, just continue to next slide.
+            return "NEXT";
+        } else {
+            my $r = $? >> 8;
+            if ($r == 0) {
+                return "NEXT";
+            } elsif ($r == 1) {
+                return "PREV";
+            } elsif ($r == 2) {
+                return "QUIT";
+            }
+        }
+    }
+    elsif ($slide->{ext} eq "sh") {
+        system ("PATH=.:\$PATH " . $slide->{name});
+        return "NEXT";
+    }
+}
 
 1;
 
