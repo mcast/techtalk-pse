@@ -12,10 +12,11 @@ add_history ()
 
 terminal ()
 {
-    gnome-terminal \
+    exec \
+        gnome-terminal \
         --window \
         --geometry=+100+100 \
         --hide-menubar \
-        --title='Tech Talk PSE Simple example' \
-        -e '/bin/bash --norc'
+        -e '/bin/bash --norc' \
+        "$@"
 }

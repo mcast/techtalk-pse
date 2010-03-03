@@ -23,6 +23,7 @@ use warnings;
 use strict;
 use utf8;
 
+use POSIX qw(setsid);
 use Pod::Usage;
 use Getopt::Long;
 use Cwd qw(getcwd abs_path);
@@ -142,10 +143,14 @@ Display version number and exit.
 =cut
 
 my $mozembed;
+my $mozembed_first;
+my $mozembed_last;
 
 GetOptions ("help|?" => \$help,
             "last" => \$last,
             "mozembed" => \$mozembed,
+            "mozembed-first" => \$mozembed_first,
+            "mozembed-last" => \$mozembed_last,
             "n=s" => \$start,
             "splash!" => \$splash,
             "start=s" => \$start,
@@ -165,48 +170,10 @@ if ($version) {
 die "techtalk-pse: cannot use --start and --last options together\n"
     if defined $last && defined $start;
 
-# --mozembed runs Gtk2::MozEmbed as a subprocess, because MozEmbed
-# is very crashy.
-if ($mozembed) {
-    my $r = 0;
+# Run with --mozembed: see below.
+run_mozembed () if $mozembed;
 
-    my $w = Gtk2::Window->new ();
-    my $vbox = Gtk2::VBox->new ();
-    my $moz = Gtk2::MozEmbed->new ();
-    my $bbox = Gtk2::HButtonBox->new ();
-
-    $vbox->pack_start ($bbox, 0, 0, 0);
-    $vbox->add ($moz);
-    $w->fullscreen ();
-    #$w->set_default_size (640, 480);
-    $w->add ($vbox);
-
-    $bbox->set_layout ('start');
-    my $bnext = Gtk2::Button->new ("Next slide");
-    $bnext->signal_connect (clicked => sub { $r = 0; Gtk2->main_quit });
-    $bbox->add ($bnext);
-
-    my $bback = Gtk2::Button->new ("Back");
-    $bback->signal_connect (clicked => sub { $r = 1; Gtk2->main_quit });
-    $bbox->add ($bback);
-
-    my $bquit = Gtk2::Button->new ("Quit");
-    $bquit->signal_connect (clicked => sub { $r = 2; Gtk2->main_quit });
-    $bbox->add ($bquit);
-    $bbox->set_child_secondary ($bquit, 1);
-
-    $w->signal_connect (delete_event => sub {
-        Gtk2->main_quit;
-        return FALSE;
-    });
-    $w->show_all ();
-
-    $moz->load_url ($ARGV[0]);
-    Gtk2->main;
-
-    exit $r;
-}
-
+# Normal run of the program.
 die "techtalk-pse: too many arguments\n" if @ARGV >= 2;
 
 # Get the true name of the program.
@@ -227,31 +194,32 @@ if (@ARGV > 0) {
 # Get the files.
 my @files;
 my %files;
-my %groups;
 sub reread_directory
 {
     @files = ();
-    %groups = ();
 
+    my $i = 0;
     foreach (glob ("*")) {
-        if (/^(\d+)([A-Z])?(?:-.*)\.(html|sh)$/) {
+        if (/^(\d+)(?:-.*)\.(html|sh)$/) {
             print STDERR "reading $_\n" if $verbose;
 
             my $seq = $1;
-            my $pos = $2 || "A";
-            my $ext = $3;
+            my $ext = $2;
             warn "techtalk-pse: $_: command file is not executable (+x)\n"
                 if $ext eq "sh" && ! -x $_;
 
-            my $h = { name => $_, seq => $1, pos => $2, ext => $3 };
+            my $h = { name => $_, seq => $1, ext => $2, i => $i };
             push @files, $h;
             $files{$_} = $h;
-
-            $groups{$seq} = [] unless exists $groups{$seq};
-            push @{$groups{$seq}}, $h;
+            $i++;
         } else {
             print STDERR "ignoring $_\n" if $verbose;
         }
+    }
+
+    if (@files > 0) {
+        $files[0]->{first} = 1;
+        $files[$#files]->{last} = 1;
     }
 }
 reread_directory ();
@@ -284,9 +252,9 @@ if ($splash) {
     $w->set_version ("@VERSION@");
     $w->set_website ("http://people.redhat.com/~rjones");
     $w->set_license ("GNU General Public License v2 or above");
-    $w->signal_connect (destroy => sub { Gtk2->main_quit });
-    $w->show_all;
-    Gtk2->main;
+    $w->run;
+    print STDERR "calling \$w->destroy on about dialog\n" if $verbose;
+    $w->destroy;
 }
 
 MAIN: while (1) {
@@ -296,15 +264,8 @@ MAIN: while (1) {
             print STDERR "go = $go\n" if $verbose;
             last MAIN if $go eq "QUIT";
 
-            my $i = 0;
-          FOUND: {
-              foreach (@files) {
-                  last FOUND if $files[$i]->{name} eq $current->{name};
-                  $i++;
-              }
-              die "internal error: cannot find \$current in \@files"
-            }
-            print STDERR "found current entry at i = $i\n" if $verbose;
+            my $i = $current->{i};
+            print STDERR "i = $i\n" if $verbose;
             $i-- if $go eq "PREV" && $i > 0;
             $i++ if $go eq "NEXT" && $i+1 < @files;
             $current = $files[$i];
@@ -314,6 +275,7 @@ MAIN: while (1) {
         $_ = <STDIN>;
     }
 
+    # Reread directory between slides.
     reread_directory ();
 
     if (defined $current && !exists $files{$current->{name}}) {
@@ -323,17 +285,23 @@ MAIN: while (1) {
     }
 }
 
-sub show_slide {
+sub show_slide
+{
     my $slide = shift;
 
+    # Display an HTML page.
     if ($slide->{ext} eq "html") {
         # MozEmbed is incredibly crashy, so we run ourself as a
         # subprocess, so when it segfaults we don't care.
+        my @cmd = ($0, "--mozembed");
+        push @cmd, "--mozembed-first" if exists $slide->{first};
+        push @cmd, "--mozembed-last" if exists $slide->{last};
         my $cwd = getcwd;
         my $url = "file://" . $cwd . "/" . $slide->{name};
-        my @cmd = ($0, "--mozembed", $url);
+        push @cmd, $url;
         system (@cmd);
-        die "failed to execute subcommand: $!\n" if $? == -1;
+        die "failed to execute subcommand: ", join(" ", @cmd), ": $!\n"
+            if $? == -1;
         if ($? & 127) {
             # Subcommand probably segfaulted, just continue to next slide.
             return "NEXT";
@@ -348,10 +316,124 @@ sub show_slide {
             }
         }
     }
+    # Run a shell command.
     elsif ($slide->{ext} eq "sh") {
-        system ("PATH=.:\$PATH " . $slide->{name});
-        return "NEXT";
+        my $pid;
+        # http://docstore.mik.ua/orelly/perl/cookbook/ch10_17.htm
+        local *run_process = sub {
+            $pid = fork ();
+            die "fork: $!" unless defined $pid;
+            unless ($pid) {
+                # Child.
+                POSIX::setsid ();
+                $ENV{PATH} = ".:$ENV{PATH}";
+                exec ($slide->{name});
+                die "failed to execute command: ", $slide->{name}, ": $!";
+            }
+            # Parent returns.
+        };
+        local *kill_process = sub {
+            print STDERR "sending TERM signal to process group $pid\n"
+                if $verbose;
+            kill "TERM", -$pid;
+        };
+        run_process ();
+
+        my $r = "NEXT";
+
+        my $w = Gtk2::Window->new ();
+
+        my $s = $w->get_screen;
+        $w->set_default_size ($s->get_width, -1);
+        $w->move (0, 0);
+        $w->set_decorated (0);
+
+        my $bbox = Gtk2::HButtonBox->new ();
+        $bbox->set_layout ('start');
+
+        my $bnext = Gtk2::Button->new ("Next slide");
+        $bnext->signal_connect (clicked => sub { $r = "NEXT"; $w->destroy });
+        $bnext->set_sensitive (!(exists $slide->{last}));
+        $bbox->add ($bnext);
+
+        my $bback = Gtk2::Button->new ("Back");
+        $bback->signal_connect (clicked => sub { $r = "PREV"; $w->destroy });
+        $bback->set_sensitive (!(exists $slide->{first}));
+        $bbox->add ($bback);
+
+        my $brestart = Gtk2::Button->new ("Kill & restart");
+        $brestart->signal_connect (clicked => sub {
+            kill_process ();
+            run_process ();
+        });
+        $bbox->add ($brestart);
+
+        my $bquit = Gtk2::Button->new ("Quit");
+        $bquit->signal_connect (clicked => sub { $r = "QUIT"; $w->destroy });
+        $bbox->add ($bquit);
+        $bbox->set_child_secondary ($bquit, 1);
+
+        $w->add ($bbox);
+
+        $w->signal_connect (destroy => sub {
+            Gtk2->main_quit;
+            return FALSE;
+        });
+        $w->show_all ();
+
+        Gtk2->main;
+
+        kill_process ();
+        print STDERR "returning r=$r\n" if $verbose;
+        return $r;
     }
+}
+
+# If invoked with the --mozembed parameter then we just display a
+# single page.  This is just to prevent crashes in MozEmbed from
+# killing the whole program.
+sub run_mozembed
+{
+    my $r = 0;
+
+    my $w = Gtk2::Window->new ();
+    my $vbox = Gtk2::VBox->new ();
+    my $moz = Gtk2::MozEmbed->new ();
+
+    my $bbox = Gtk2::HButtonBox->new ();
+    $bbox->set_layout ('start');
+
+    $vbox->pack_start ($bbox, 0, 0, 0);
+    $vbox->add ($moz);
+    $w->fullscreen ();
+    #$w->set_default_size (640, 480);
+    $w->add ($vbox);
+
+    my $bnext = Gtk2::Button->new ("Next slide");
+    $bnext->signal_connect (clicked => sub { $r = 0; $w->destroy });
+    $bnext->set_sensitive (!$mozembed_last);
+    $bbox->add ($bnext);
+
+    my $bback = Gtk2::Button->new ("Back");
+    $bback->signal_connect (clicked => sub { $r = 1; $w->destroy });
+    $bback->set_sensitive (!$mozembed_first);
+    $bbox->add ($bback);
+
+    my $bquit = Gtk2::Button->new ("Quit");
+    $bquit->signal_connect (clicked => sub { $r = 2; $w->destroy });
+    $bbox->add ($bquit);
+    $bbox->set_child_secondary ($bquit, 1);
+
+    $w->signal_connect (destroy => sub {
+        Gtk2->main_quit;
+        return FALSE;
+    });
+    $w->show_all ();
+
+    $moz->load_url ($ARGV[0]);
+    Gtk2->main;
+
+    exit $r;
 }
 
 1;
