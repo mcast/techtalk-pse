@@ -168,21 +168,43 @@ die "techtalk-pse: cannot use --start and --last options together\n"
 # --mozembed runs Gtk2::MozEmbed as a subprocess, because MozEmbed
 # is very crashy.
 if ($mozembed) {
+    my $r = 0;
+
     my $w = Gtk2::Window->new ();
+    my $vbox = Gtk2::VBox->new ();
     my $moz = Gtk2::MozEmbed->new ();
+    my $bbox = Gtk2::HButtonBox->new ();
+
+    $vbox->pack_start ($bbox, 0, 0, 0);
+    $vbox->add ($moz);
+    $w->fullscreen ();
+    #$w->set_default_size (640, 480);
+    $w->add ($vbox);
+
+    $bbox->set_layout ('start');
+    my $bnext = Gtk2::Button->new ("Next slide");
+    $bnext->signal_connect (clicked => sub { $r = 0; Gtk2->main_quit });
+    $bbox->add ($bnext);
+
+    my $bback = Gtk2::Button->new ("Back");
+    $bback->signal_connect (clicked => sub { $r = 1; Gtk2->main_quit });
+    $bbox->add ($bback);
+
+    my $bquit = Gtk2::Button->new ("Quit");
+    $bquit->signal_connect (clicked => sub { $r = 2; Gtk2->main_quit });
+    $bbox->add ($bquit);
+    $bbox->set_child_secondary ($bquit, 1);
 
     $w->signal_connect (delete_event => sub {
         Gtk2->main_quit;
         return FALSE;
-                        });
-
-    $w->set_default_size (600, 400);
-    $w->add ($moz);
+    });
     $w->show_all ();
+
     $moz->load_url ($ARGV[0]);
     Gtk2->main;
 
-    exit 0;
+    exit $r;
 }
 
 die "techtalk-pse: too many arguments\n" if @ARGV >= 2;
@@ -267,12 +289,13 @@ if ($splash) {
     Gtk2->main;
 }
 
-my $quit;
-while (!$quit) {
+MAIN: while (1) {
     if (defined $current) {
         my $go = show_slide ($current);
-        if (defined $go && ($go eq "PREV" || $go eq "NEXT")) {
+        if (defined $go) {
             print STDERR "go = $go\n" if $verbose;
+            last MAIN if $go eq "QUIT";
+
             my $i = 0;
           FOUND: {
               foreach (@files) {

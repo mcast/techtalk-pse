@@ -3,6 +3,13 @@
 export PS1="$ "
 export HISTFILE=/tmp/history
 
+rm -f $HISTFILE
+
+add_history ()
+{
+    echo "$@" >> $HISTFILE
+}
+
 terminal ()
 {
     gnome-terminal \
