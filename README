@@ -30,6 +30,7 @@ For dependencies, run './configure'.  In brief you will need:
 
 To build from source:
 
+  autoreconf -i   # only if building from git
   ./configure
   make
   sudo make install
