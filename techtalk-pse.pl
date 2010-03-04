@@ -478,6 +478,8 @@ That just ensures that I can put common styling instructions for all
 my slides in a single file (C<style.css>), and I have one place where
 I can add all Javascript, if I need to use any (C<code.js>).
 
+=head3 BACKGROUNDS, FONTS AND LOGOS
+
 To add a common background and font size to all slides, put this in
 C<style.css>:
 
@@ -486,10 +488,42 @@ C<style.css>:
      background: url(background-image.jpg) no-repeat;
  }
 
+To add a logo in one corner:
+
+ body {
+     background: url(logo.jpg) top right no-repeat;
+ }
+
+=head3 SCALING AND CENTERING
+
 Scaling slide text and images so that they appear at the same
 proportionate size for any screen resolution can be done using
 Javascript.  (See
 L<https://developer.mozilla.org/En/DOM/window.innerHeight>).
+
+If you want to center text horizontally, use CSS, eg:
+
+ p.center {
+     text-align: center;
+ }
+
+To center text vertically, CSS3 is supposed to offer a solution some
+time, but while you're waiting for that try
+L<http://www.w3.org/Style/Examples/007/center#vertical>.
+
+=head3 PREVIEWING HTML
+
+I find it helpful to have Firefox open to display the HTML files and
+styles as I edit them.  Just start firefox in the talk directory:
+
+ firefox file://$(pwd) &
+
+When you edit an HTML file, click the Firefox reload button to
+immediately see your changes.
+
+Tech Talk PSE uses Mozilla embedding to display HTML, which uses the
+same Mozilla engine as Firefox, so what you should see in Firefox
+should be identical to what Tech Talk PSE displays.
 
 =head2 CREATING FIGURES
 
