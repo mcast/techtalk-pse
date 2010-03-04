@@ -439,9 +439,239 @@ sub run_mozembed
 
 =head1 TUTORIAL
 
+=head2 START WRITING A TALK
+
+[Before you start writing your real talk, I urge you to read
+L</WHAT MAKES A GOOD TALK> below].
+
+To start your talk, all you have to do is to make a new directory
+somewhere:
+
+ mkdir talk
+ cd talk
+
+A tech talk consists of HTML files ("slides") and shell scripts.  The
+filenames must start with a number, followed optionally by a
+description, followed by the extension (C<.html> or C<.sh>).  So to
+start our talk with two slides:
+
+ echo "This is the introduction" > 0010-introduction.html
+ echo "This is the second slide" > 0020-second.html
+
+To run it, run the command from within the talk directory:
+
+ techtalk-pse
+
+Any other file in the directory is ignored, so if you want to add
+Makefiles, version control files etc, just go ahead.
+
+=head2 TIPS FOR WRITING HTML
+
+You may have your own techniques and tools for writing HTML, so
+this section is just to share my ideas.  I start every
+HTML file with a standard stylesheet and Javascript header:
+
+ <link rel="stylesheet" href="style.css" type="text/css"/>
+ <script src="code.js" type="text/javascript"></script>
+
+That just ensures that I can put common styling instructions for all
+my slides in a single file (C<style.css>), and I have one place where
+I can add all Javascript, if I need to use any (C<code.js>).
+
+To add a common background and font size to all slides, put this in
+C<style.css>:
+
+ body {
+     font-size: 24pt;
+     background: url(background-image.jpg) no-repeat;
+ }
+
+Scaling slide text and images so that they appear at the same
+proportionate size for any screen resolution can be done using
+Javascript.  (See
+L<https://developer.mozilla.org/En/DOM/window.innerHeight>).
+
+=head2 CREATING FIGURES
+
+Use your favorite tool to draw the figure, convert it to an image (in
+any format that the Mozilla engine can display) and include it using
+an C<E<lt>imgE<gt>> tag, eg:
+
+ <img src="fig1.gif">
+
+Suitable tools include: XFig, GnuPlot, GraphViz, and many TeX tools
+such as PicTex and in particular TikZ.
+
+=head2 EMBEDDING VIDEOS, ANIMATIONS, ETC.
+
+Using HTML 5, embedding videos in the browser is easy.  See:
+L<https://developer.mozilla.org/En/Using_audio_and_video_in_Firefox>
+
+For animations, you could try L<Haxe|http://haxe.org/> which has a
+Javascript back-end.  There are many other possibilities.
+
+If you are B<sure> that the venue will have an internet connection,
+why not embed a YouTube video.
+
+=head2 DISPLAYING EXISTING WEB PAGES
+
+Obviously you could just have an HTML file that contains a redirect to
+the public web page:
+
+ <meta http-equiv="Refresh" content="0; url=http://www.example.com/">
+
+However if you want your talk to work offline, then it's better to
+download the web page in advance, eg. using Firefox's "Save Page As
+-E<gt> Web Page, complete" feature, into the talk directory, then
+either rename or make a symbolic link to the slide name:
+
+ ln -s "haXe - Welcome to haXe.html" 0010-haxe-homepage.html
+
+=head2 TIPS FOR WRITING SHELL SCRIPTS
+
+Make sure each C<*.sh> file you write is executable, otherwise Tech
+Talk PSE won't be able to run it.  (The program gives a warning if you
+forget this).
+
+A good idea is to start each script by sourcing some common functions.
+All my scripts start with:
+
+ #!/bin/bash -
+ source functions
+
+where C<functions> is another file (ignored by Tech Talk PSE) which
+contains common functions for setting shell history and starting a
+terminal.
+
+In C<functions>, I have:
+
+ # -*- shell-script -*-
+ export PS1="$ "
+ export HISTFILE=/tmp/history
+ rm -f $HISTFILE
+ 
+ add_history ()
+ {
+     echo "$@" >> $HISTFILE
+ }
+ 
+ terminal ()
+ {
+     exec \
+         gnome-terminal \
+         --window \
+         --geometry=+100+100 \
+         --hide-menubar \
+         --disable-factory \
+         -e '/bin/bash --norc' \
+         "$@"
+ }
+
+By initializing the shell history, during your talk you can rapidly
+recall commands to start parts of the demonstration just by hitting
+the Up arrow.  A complete shell script from one of my talks would look
+like this:
+
+ #!/bin/bash -
+ source functions
+ add_history guestfish -i debian.img
+ terminal --title="Examining a Debian guest image in guestfish"
+
+This is just a starting point for your own scripts.  You may want to
+use a different terminal, such as xterm, and you may want to adjust
+terminal fonts.
+
 =head1 REFERENCE
 
+=head2 ORDER OF FILES
+
+Tech Talk PSE displays the slides in the directory in lexicographic
+order (the same order as C<LANG=C ls -1>).  Only files matching the
+following regexp are considered:
+
+ ^(\d+)(?:-.*)\.(html|sh)$
+
+For future compatibility, you should ensure that every slide has a
+unique numeric part (ie. I<don't> have C<0010-aaa.html> and
+C<0010-bbb.html>).  This is because in future we want to have the
+ability to display multiple files side by side.
+
+Also for future compatibility, I<don't> use file names that have an
+uppercase letter immediately after the numeric part.  This is because
+in future we want to allow placement hints using filenames like
+C<0010L-on-the-left.html> and C<0010R-on-the-right.html>.
+
+=head2 BASE URL AND CURRENT DIRECTORY
+
+The base URL is set to the be the directory containing the talk files.
+Thus you should use relative paths, eg:
+
+ <img src="fig1.gif">
+
+You can also place assets into subdirectories, because subdirectories
+are ignored by Tech Talk PSE, eg:
+
+ <img src="images/fig1.gif">
+
+When running shell scripts, the current directory is also set to be
+the directory containing the talk files, so the same rules about using
+relative paths apply there too.
+
 =head1 WHAT MAKES A GOOD TALK
+
+I like what Edward Tufte writes, for example his evisceration of
+PowerPoint use at NASA here:
+L<http://www.edwardtufte.com/bboard/q-and-a-fetch-msg?msg_id=0001yB>
+
+However it is sometimes hard to translate his ideas into clear
+presentations, and not all of that is the fault of the tools.  Here
+are my thoughts and rules on how to deliver a good talk.
+
+B<First, most important rule:> Before you start drawing any slides at
+all, write your talk as a short essay.
+
+This is the number one mistake that presenters make, and it is partly
+a tool fault, because PowerPoint, OpenOffice, even Tech Talk PSE, all
+open up on an initial blank slide, inviting you to write a title and
+some bullet points.  If you start that way, you will end up using the
+program as a kind of clumsy outlining tool, and then reading that
+outline to your audience.  That's boring and a waste of time for you
+and your audience.  (It would be quicker for them just to download the
+talk and read it at home).
+
+B<Secondly:> How long do you want to spend preparing the talk?  A good
+talk, with a sound essay behind it, well thought out diagrams and
+figures, and interesting demonstrations, takes many hours to prepare.
+How many hours?  I would suggest thinking about how many hours of
+effort your audience are putting in.  Even just 20 people sitting
+there for half an hour is 10 man-hours of attention, and that is a
+very small talk, and doesn't include all the extra time and hassle
+that it took to get them all in one place.
+
+I don't think you can get away with spending less than two full days
+preparing a talk, if you want to master the topic and draw up accurate
+slides.  Steve Jobs is reputed to spend weeks preparing his annual
+sales talk to the Apple faithful.
+
+B<Thirdly:> Now that you're going to write your talk as an essay, what
+should go in the slides?  I would say that you should consider
+delivering the essay, I<not> the slides, to people who don't make the
+talk.  An essay can be turned into an article or blog posting, whereas
+even "read-out-the-bullet-point" slides have a low information
+density, large size, and end-user compatibility problems (*.pptx
+anyone?).
+
+What, then, goes on the slides?  Anything you cannot just say:
+diagrams, graphs, videos, animations, and of course (only with Tech
+Talk PSE!) demonstrations.
+
+B<Lastly:> Once you've got your talk as an essay and slides, practice,
+practice and practice again.  Deliver the talk to yourself in the
+mirror, to your colleagues.  Practice going backwards and forwards
+through the slides, using your actual laptop and the software so you
+know what to click and what keys to press.  Partly memorize what you
+are going to say (but use short notes written on paper if you need
+to).
 
 =head1 SEE ALSO
 
