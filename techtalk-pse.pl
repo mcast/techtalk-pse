@@ -326,8 +326,7 @@ sub show_slide
             unless ($pid) {
                 # Child.
                 POSIX::setsid ();
-                $ENV{PATH} = ".:$ENV{PATH}";
-                exec ($slide->{name});
+                exec ("./".$slide->{name});
                 die "failed to execute command: ", $slide->{name}, ": $!";
             }
             # Parent returns.
