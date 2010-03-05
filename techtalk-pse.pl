@@ -242,11 +242,7 @@ if ($splash) {
     my $w = Gtk2::AboutDialog->new;
     $w->set_authors ("Richard W.M. Jones");
     $w->set_comments (
-        "Superior technical demonstration software\n".
-        "\n".
-        "Keys\n".
-        "↑ — Go back one slide\n".
-        "↓ — Go forward one slide\n"
+        "Superior technical demonstration software\n"
         );
     $w->set_program_name ("Tech Talk Platinum Supreme Edition (PSE)");
     $w->set_version ("@VERSION@");
