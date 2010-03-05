@@ -1,5 +1,10 @@
 # -*- shell-script -*-
 
+# Need a short sleep to allow the previous shell to exit, possibly
+# writing to the history file, before we start the new shell.  Could
+# write to a different history file each time which would avoid this.
+sleep 1
+
 export PS1="$ "
 export HISTFILE=/tmp/history
 
