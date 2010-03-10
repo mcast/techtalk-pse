@@ -191,6 +191,11 @@ if (@ARGV > 0) {
     }
 }
 
+# Get the talk directory and set environment variable $talkdir
+# which is inherited by all the scripts.
+my $talkdir = getcwd;
+$ENV{talkdir} = $talkdir;
+
 # Get the files.
 my @files;
 my %files;
@@ -292,9 +297,10 @@ sub show_slide
         my @cmd = ($0, "--mozembed");
         push @cmd, "--mozembed-first" if exists $slide->{first};
         push @cmd, "--mozembed-last" if exists $slide->{last};
-        my $cwd = getcwd;
-        my $url = "file://" . $cwd . "/" . $slide->{name};
+        my $url = "file://$talkdir/" . $slide->{name};
         push @cmd, $url;
+	print STDERR "running subcommand: ", join (" ", @cmd), "\n"
+	    if $verbose;
         system (@cmd);
         die "failed to execute subcommand: ", join(" ", @cmd), ": $!\n"
             if $? == -1;
@@ -646,6 +652,13 @@ are ignored by Tech Talk PSE, eg:
 When running shell scripts, the current directory is also set to be
 the directory containing the talk files, so the same rules about using
 relative paths apply there too.
+
+The environment variable C<$talkdir> is exported to scripts and it
+contains the absolute path of the directory containing the talk files.
+When a script is run, the current directory is the same as
+C<$talkdir>, but if your script changes directory (eg. into a
+subdirectory containing supporting files) then it can be useful to use
+C<$talkdir> to refer back to the original directory.
 
 =head1 WHAT MAKES A GOOD TALK
 
