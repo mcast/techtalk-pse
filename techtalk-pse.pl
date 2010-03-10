@@ -256,6 +256,11 @@ if ($splash) {
     $w->run;
     print STDERR "calling \$w->destroy on about dialog\n" if $verbose;
     $w->destroy;
+
+    # The dialog doesn't really get destroyed here.  We have
+    # to add this hack to really destroy it.
+    Glib::Idle->add (sub { Gtk2->main_quit; return FALSE; });
+    Gtk2->main;
 }
 
 MAIN: while (1) {
