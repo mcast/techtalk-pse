@@ -1,0 +1,8 @@
+Instead of "Quit" button, add a menu of actions
+(make Quit indirect so you can't click it by accident).
+
+Menu should include:
+  go to First and Last slide.
+  go to a particular slide.
+
+Take a screenshot
