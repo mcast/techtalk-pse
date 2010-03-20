@@ -1,5 +1,5 @@
 #!/bin/bash -
 source functions
-add_history guestfish -a vm1.img
-add_history guestfish -a vm2.img -m /dev/sda1
-terminal --title="Guestfish demonstration"
+add_history echo History command number 2
+add_history echo '"History command number 1"'
+terminal --title="Press the UP ARROW to get history"

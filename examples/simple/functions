@@ -1,14 +1,14 @@
 # -*- shell-script -*-
 
-# Need a short sleep to allow the previous shell to exit, possibly
-# writing to the history file, before we start the new shell.  Could
-# write to a different history file each time which would avoid this.
-sleep 1
+# Place any local environment variables required in 'local'.
+if [ -f local ]; then source local; fi
 
 export PS1="$ "
-export HISTFILE=/tmp/history
+
+export HISTFILE=$talkdir/history
 
 rm -f $HISTFILE
+touch $HISTFILE
 
 add_history ()
 {
@@ -17,6 +17,11 @@ add_history ()
 
 terminal ()
 {
+    # Make $HISTFILE unwritable so the shell won't update it
+    # when it exits.
+    chmod -w $HISTFILE
+
+    # Run gnome-terminal.
     exec \
         gnome-terminal \
         --window \
