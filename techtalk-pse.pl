@@ -298,7 +298,9 @@ sub show_slide
     # Display an HTML page.
     if ($slide->{ext} eq "html") {
         # MozEmbed is incredibly crashy, so we run ourself as a
-        # subprocess, so when it segfaults we don't care.
+        # subprocess, so when it segfaults we don't care.  If all goes
+        # well and it doesn't crash, it should print a line 'RESULT FOO'
+        # where 'FOO' is the instruction (eg. 'NEXT', 'PREV', 'QUIT' etc).
         my @cmd = ($0, "--mozembed");
         push @cmd, "--mozembed-first" if exists $slide->{first};
         push @cmd, "--mozembed-last" if exists $slide->{last};
@@ -306,22 +308,20 @@ sub show_slide
         push @cmd, $url;
 	print STDERR "running subcommand: ", join (" ", @cmd), "\n"
 	    if $verbose;
-        system (@cmd);
-        die "failed to execute subcommand: ", join(" ", @cmd), ": $!\n"
-            if $? == -1;
-        if ($? & 127) {
-            # Subcommand probably segfaulted, just continue to next slide.
-            return "NEXT";
-        } else {
-            my $r = $? >> 8;
-            if ($r == 0) {
-                return "NEXT";
-            } elsif ($r == 1) {
-                return "PREV";
-            } elsif ($r == 2) {
-                return "QUIT";
+        open CMD, "-|", @cmd
+            or die "failed to execute subcommand: ", join(" ", @cmd), ": $!\n";
+        my $r;
+        while (<CMD>) {
+            if (/^RESULT ([A-Z]+.*)/) {
+                $r = $1;
+                print STDERR "subcommand result: $r\n" if $verbose;
+                last;
             }
         }
+        # No RESULT line?  Subcommand probably segfaulted, just
+        # continue to next slide.
+        $r ||= "NEXT";
+        return $r;
     }
     # Run a shell command.
     elsif ($slide->{ext} eq "sh") {
@@ -400,8 +400,6 @@ sub show_slide
 # killing the whole program.
 sub run_mozembed
 {
-    my $r = 0;
-
     my $w = Gtk2::Window->new ();
     my $vbox = Gtk2::VBox->new ();
     my $moz = Gtk2::MozEmbed->new ();
@@ -416,17 +414,20 @@ sub run_mozembed
     $w->add ($vbox);
 
     my $bnext = Gtk2::Button->new ("Next slide");
-    $bnext->signal_connect (clicked => sub { $r = 0; $w->destroy });
+    $bnext->signal_connect (clicked =>
+                            sub { print "RESULT NEXT\n"; $w->destroy });
     $bnext->set_sensitive (!$mozembed_last);
     $bbox->add ($bnext);
 
     my $bback = Gtk2::Button->new ("Back");
-    $bback->signal_connect (clicked => sub { $r = 1; $w->destroy });
+    $bback->signal_connect (clicked =>
+                            sub { print "RESULT PREV\n"; $w->destroy });
     $bback->set_sensitive (!$mozembed_first);
     $bbox->add ($bback);
 
     my $bquit = Gtk2::Button->new ("Quit");
-    $bquit->signal_connect (clicked => sub { $r = 2; $w->destroy });
+    $bquit->signal_connect (clicked =>
+                            sub { print "RESULT QUIT\n"; $w->destroy });
     $bbox->add ($bquit);
     $bbox->set_child_secondary ($bquit, 1);
 
@@ -439,7 +440,7 @@ sub run_mozembed
     $moz->load_url ($ARGV[0]);
     Gtk2->main;
 
-    exit $r;
+    exit 0;
 }
 
 1;
