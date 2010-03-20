@@ -587,9 +587,16 @@ terminal.
 In C<functions>, I have:
 
  # -*- shell-script -*-
+ 
+ # Place any local environment variables required in 'local'.
+ if [ -f local ]; then source local; fi
+ 
  export PS1="$ "
- export HISTFILE=/tmp/history
+ 
+ export HISTFILE=$talkdir/history
+ 
  rm -f $HISTFILE
+ touch $HISTFILE
  
  add_history ()
  {
@@ -598,6 +605,11 @@ In C<functions>, I have:
  
  terminal ()
  {
+     # Make $HISTFILE unwritable so the shell won't update it
+     # when it exits.
+     chmod -w $HISTFILE
+ 
+     # Run gnome-terminal.
      exec \
          gnome-terminal \
          --window \

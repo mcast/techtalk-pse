@@ -6,3 +6,22 @@ Menu should include:
   go to a particular slide.
 
 Take a screenshot
+
+Allow placement:
+
+ 0010L-hello.html   +-----------+-----------+
+ 0010R-hello.html   |           |           |
+                    |     L     |     R     |
+                    |           |           |
+                    +-----------+-----------+
+
+similarly 'A' (above) and 'B' (below).
+
+Allow placement across monitors.
+
+Allow talk notes to be placed permanently on one monitor (is this
+useful though?  speaker could just open an editor with the notes
+separately).
+
+Fix Gtk2::Embed so it doesn't keep crashing and so we can
+run everything in a single process.
