@@ -354,30 +354,15 @@ sub show_slide
         $w->move (0, 0);
         $w->set_decorated (0);
 
-        my $bbox = Gtk2::HButtonBox->new ();
-        $bbox->set_layout ('start');
-
-        my $bnext = Gtk2::Button->new ("Next slide");
-        $bnext->signal_connect (clicked => sub { $r = "NEXT"; $w->destroy });
-        $bnext->set_sensitive (!(exists $slide->{last}));
-        $bbox->add ($bnext);
-
-        my $bback = Gtk2::Button->new ("Back");
-        $bback->signal_connect (clicked => sub { $r = "PREV"; $w->destroy });
-        $bback->set_sensitive (!(exists $slide->{first}));
-        $bbox->add ($bback);
-
-        my $brestart = Gtk2::Button->new ("Kill & restart");
-        $brestart->signal_connect (clicked => sub {
-            kill_process ();
-            run_process ();
-        });
-        $bbox->add ($brestart);
-
-        my $bquit = Gtk2::Button->new ("Quit");
-        $bquit->signal_connect (clicked => sub { $r = "QUIT"; $w->destroy });
-        $bbox->add ($bquit);
-        $bbox->set_child_secondary ($bquit, 1);
+        my $bbox =
+            make_button_bar ((exists $slide->{first}),
+                             (exists $slide->{last}),
+                             sub { $r = $_[0]; $w->destroy },
+                             restart => sub {
+                                 kill_process ();
+                                 run_process ();
+                             },
+            );
 
         $w->add ($bbox);
 
@@ -404,32 +389,16 @@ sub run_mozembed
     my $vbox = Gtk2::VBox->new ();
     my $moz = Gtk2::MozEmbed->new ();
 
-    my $bbox = Gtk2::HButtonBox->new ();
-    $bbox->set_layout ('start');
+    my $bbox =
+        make_button_bar ($mozembed_first, $mozembed_last,
+                         sub { print "RESULT ", $_[0], "\n"; $w->destroy }
+        );
 
     $vbox->pack_start ($bbox, 0, 0, 0);
     $vbox->add ($moz);
     $w->fullscreen ();
     #$w->set_default_size (640, 480);
     $w->add ($vbox);
-
-    my $bnext = Gtk2::Button->new ("Next slide");
-    $bnext->signal_connect (clicked =>
-                            sub { print "RESULT NEXT\n"; $w->destroy });
-    $bnext->set_sensitive (!$mozembed_last);
-    $bbox->add ($bnext);
-
-    my $bback = Gtk2::Button->new ("Back");
-    $bback->signal_connect (clicked =>
-                            sub { print "RESULT PREV\n"; $w->destroy });
-    $bback->set_sensitive (!$mozembed_first);
-    $bbox->add ($bback);
-
-    my $bquit = Gtk2::Button->new ("Quit");
-    $bquit->signal_connect (clicked =>
-                            sub { print "RESULT QUIT\n"; $w->destroy });
-    $bbox->add ($bquit);
-    $bbox->set_child_secondary ($bquit, 1);
 
     $w->signal_connect (destroy => sub {
         Gtk2->main_quit;
@@ -441,6 +410,57 @@ sub run_mozembed
     Gtk2->main;
 
     exit 0;
+}
+
+# Make the standard button bar across the top of the page.
+sub make_button_bar
+{
+    my $first = shift;
+    my $last = shift;
+    my $cb = shift;
+    my %params = @_;
+
+    my $bbox = Gtk2::Toolbar->new ();
+
+    my $i = 0;
+
+    my $bnext = Gtk2::ToolButton->new (undef, "Next slide");
+    $bnext->signal_connect (clicked => sub { &$cb ("NEXT") });
+    $bnext->set_sensitive (!$last);
+    $bbox->insert ($bnext, $i++);
+
+    my $bback = Gtk2::ToolButton->new (undef, "Back");
+    $bback->signal_connect (clicked => sub { &$cb ("PREV") });
+    $bback->set_sensitive (!$first);
+    $bbox->insert ($bback, $i++);
+
+    if (exists $params{restart}) {
+        $bbox->insert (Gtk2::SeparatorToolItem->new (), $i++);
+
+        my $brestart = Gtk2::ToolButton->new (undef, "Kill & restart");
+        $brestart->signal_connect (clicked => $params{restart});
+        $bbox->insert ($brestart, $i++);
+    }
+
+    my $sep = Gtk2::SeparatorToolItem->new ();
+    $sep->set_expand (TRUE);
+    $sep->set_draw (FALSE);
+    $bbox->insert ($sep, $i++);
+
+    my $optsmenu = Gtk2::Menu->new ();
+
+    my $bquit = Gtk2::MenuItem->new ("Quit");
+    $bquit->signal_connect (activate => sub { \&$cb ("QUIT") });
+    $bquit->show ();
+    $optsmenu->append ($bquit);
+
+    my $boptions = Gtk2::MenuToolButton->new (undef, "Options");
+    #$boptions->signal_connect (clicked =>
+    #  sub { $optsmenu->popup (undef, undef, undef, undef, ?, ?) } );
+    $bbox->insert ($boptions, $i++);
+    $boptions->set_menu ($optsmenu);
+
+    return $bbox;
 }
 
 1;
