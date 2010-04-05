@@ -274,6 +274,8 @@ MAIN: while (1) {
             print STDERR "i = $i\n" if $verbose;
             $i-- if $go eq "PREV" && $i > 0;
             $i++ if $go eq "NEXT" && $i+1 < @files;
+            $i = 0 if $go eq "FIRST";
+            $i = $#files if $go eq "LAST";
             $current = $files[$i];
         }
     } else {
@@ -448,6 +450,20 @@ sub make_button_bar
     $bbox->insert ($sep, $i++);
 
     my $optsmenu = Gtk2::Menu->new ();
+
+    my $bfirst = Gtk2::MenuItem->new ("First slide");
+    $bfirst->signal_connect (activate => sub { \&$cb ("FIRST") });
+    $bfirst->show ();
+    $optsmenu->append ($bfirst);
+
+    my $blast = Gtk2::MenuItem->new ("Last slide");
+    $blast->signal_connect (activate => sub { \&$cb ("LAST") });
+    $blast->show ();
+    $optsmenu->append ($blast);
+
+    my $sep2 = Gtk2::SeparatorMenuItem->new ();
+    $sep2->show ();
+    $optsmenu->append ($sep2);
 
     my $bquit = Gtk2::MenuItem->new ("Quit");
     $bquit->signal_connect (activate => sub { \&$cb ("QUIT") });
