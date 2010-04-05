@@ -481,6 +481,15 @@ sub make_button_bar
     $sep2->show ();
     $optsmenu->append ($sep2);
 
+    my $bscreenshot = Gtk2::MenuItem->new ("Take a screenshot");
+    $bscreenshot->signal_connect (activate => sub { screenshot () });
+    $bscreenshot->show ();
+    $optsmenu->append ($bscreenshot);
+
+    my $sep3 = Gtk2::SeparatorMenuItem->new ();
+    $sep3->show ();
+    $optsmenu->append ($sep3);
+
     my $bquit = Gtk2::MenuItem->new ("Quit");
     $bquit->signal_connect (activate => sub { \&$cb ("QUIT") });
     $bquit->show ();
@@ -495,7 +504,35 @@ sub make_button_bar
     return $bbox;
 }
 
+# Try running the external "gnome-screenshot" program, if it's
+# available, else take a screenshot using gdk routines.
+sub screenshot
+{
+    system ("gnome-screenshot");
+
+    if ($? == -1) {
+        # We are going to save the entire screen.
+        my $root = Gtk2::Gdk->get_default_root_window ();
+        my ($width, $height) = $root->get_size;
+
+        # Create blank pixbuf to hold the image.
+        my $gdkpixbuf = Gtk2::Gdk::Pixbuf->new ('rgb',
+                                                0, 8, $width, $height);
+
+        $gdkpixbuf->get_from_drawable ($root, $root->get_colormap (),
+                                       0, 0, 0, 0, $width, $height);
+
+        my $i = 0;
+        $i++ while -f "screenshot$i.png";
+        $gdkpixbuf->save ("screenshot$i.png", 'png');
+    }
+
+    return FALSE;
+}
+
 1;
+
+__END__
 
 =head1 TUTORIAL
 
