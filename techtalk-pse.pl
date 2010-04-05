@@ -143,14 +143,10 @@ Display version number and exit.
 =cut
 
 my $mozembed;
-my $mozembed_first;
-my $mozembed_last;
 
 GetOptions ("help|?" => \$help,
             "last" => \$last,
             "mozembed" => \$mozembed,
-            "mozembed-first" => \$mozembed_first,
-            "mozembed-last" => \$mozembed_last,
             "n=s" => \$start,
             "splash!" => \$splash,
             "start=s" => \$start,
@@ -170,11 +166,7 @@ if ($version) {
 die "techtalk-pse: cannot use --start and --last options together\n"
     if defined $last && defined $start;
 
-# Run with --mozembed: see below.
-run_mozembed () if $mozembed;
-
-# Normal run of the program.
-die "techtalk-pse: too many arguments\n" if @ARGV >= 2;
+die "techtalk-pse: too many arguments\n" if !$mozembed && @ARGV >= 2;
 
 # Get the true name of the program.
 $0 = abs_path ($0);
@@ -233,6 +225,11 @@ if (@files == 0) {
     warn "techtalk-pse: no files found, continuing anyway ...\n"
 }
 
+# Run with --mozembed: see below.
+run_mozembed () if $mozembed;
+
+# Else, normal run of the program ...
+
 # Work out what slide we're starting on.
 my $current;
 if (defined $current) {
@@ -276,6 +273,7 @@ MAIN: while (1) {
             $i++ if $go eq "NEXT" && $i+1 < @files;
             $i = 0 if $go eq "FIRST";
             $i = $#files if $go eq "LAST";
+            $i = $1 if $go =~ /^I_(\d+)$/;
             $current = $files[$i];
         }
     } else {
@@ -303,11 +301,7 @@ sub show_slide
         # subprocess, so when it segfaults we don't care.  If all goes
         # well and it doesn't crash, it should print a line 'RESULT FOO'
         # where 'FOO' is the instruction (eg. 'NEXT', 'PREV', 'QUIT' etc).
-        my @cmd = ($0, "--mozembed");
-        push @cmd, "--mozembed-first" if exists $slide->{first};
-        push @cmd, "--mozembed-last" if exists $slide->{last};
-        my $url = "file://$talkdir/" . $slide->{name};
-        push @cmd, $url;
+        my @cmd = ($0, "--mozembed", $talkdir, $slide->{name});
 	print STDERR "running subcommand: ", join (" ", @cmd), "\n"
 	    if $verbose;
         open CMD, "-|", @cmd
@@ -391,8 +385,14 @@ sub run_mozembed
     my $vbox = Gtk2::VBox->new ();
     my $moz = Gtk2::MozEmbed->new ();
 
+    reread_directory ();
+
+    my $name = $ARGV[1];
+    $current = $files{$name};
+    my $url = "file://$talkdir/$name";
+
     my $bbox =
-        make_button_bar ($mozembed_first, $mozembed_last,
+        make_button_bar ($current->{first}, $current->{last},
                          sub { print "RESULT ", $_[0], "\n"; $w->destroy }
         );
 
@@ -408,7 +408,8 @@ sub run_mozembed
     });
     $w->show_all ();
 
-    $moz->load_url ($ARGV[0]);
+    $moz->load_url ($url);
+
     Gtk2->main;
 
     exit 0;
@@ -460,6 +461,21 @@ sub make_button_bar
     $blast->signal_connect (activate => sub { \&$cb ("LAST") });
     $blast->show ();
     $optsmenu->append ($blast);
+
+    my $slidesmenu = Gtk2::Menu->new ();
+    foreach (@files) {
+        my $item = Gtk2::MenuItem->new ($_->{name});
+        my $index = $_->{i};
+        $item->signal_connect (activate => sub { \&$cb ("I_$index") });
+        $item->set_sensitive ($current->{i} != $index);
+        $item->show ();
+        $slidesmenu->append ($item);
+    }
+
+    my $bslides = Gtk2::MenuItem->new ("Slides");
+    $bslides->set_submenu ($slidesmenu);
+    $bslides->show ();
+    $optsmenu->append ($bslides);
 
     my $sep2 = Gtk2::SeparatorMenuItem->new ();
     $sep2->show ();
