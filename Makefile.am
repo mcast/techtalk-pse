@@ -16,6 +16,19 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 bin_SCRIPTS = techtalk-pse
+
+EXTRA_DIST = \
+	techtalk-pse.pl \
+	README \
+	TODO \
+	examples/simple/*.html \
+	examples/simple/*.sh \
+	examples/simple/*.js \
+	examples/simple/*.css \
+	examples/simple/*.jpg \
+	examples/simple/functions \
+	examples/simple/README
+
 man_MANS = techtalk-pse.1
 
 techtalk-pse.1: techtalk-pse
