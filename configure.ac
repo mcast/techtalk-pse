@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-AC_INIT([techtalk-pse],[0.1.0])
+AC_INIT([techtalk-pse],[1.0.0])
 AM_INIT_AUTOMAKE([foreign])
 
 dnl Check for pod2man and pod2text.
