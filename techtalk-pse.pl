@@ -424,6 +424,7 @@ sub make_button_bar
     my %params = @_;
 
     my $bbox = Gtk2::Toolbar->new ();
+    $bbox->set_style ("GTK_TOOLBAR_TEXT");
 
     my $i = 0;
 
