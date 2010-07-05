@@ -67,10 +67,38 @@ there is a discussion on L<WHAT MAKES A GOOD TALK>.
 
 =head1 RUNNING THE TOOL FROM THE COMMAND LINE
 
-A Tech Talk PSE talk is not a single file, but a directory full of
-files.  (If you want to start a new talk, see the L</TUTORIAL> section
-below).  To display or run the talk, change into the directory
-containing all those files and run the C<techtalk-pse> command:
+=head2 CREATING A NEW TALK
+
+Tech Talk PSE talks are just directories containing C<*.html> and
+C<*.sh> (shell script) files:
+
+ 0010-introduction.html
+ 0500-demonstration.sh
+ 9900-conclusion.html
+
+The filenames that Tech Talk PSE considers to be slides have to match
+the regular expression:
+
+ ^(\d+)(?:-.*)\.(html|sh)$
+
+(any other file or subdirectory is ignored).  Shell scripts I<must>
+be executable.
+
+You can create a new talk just by creating an empty directory and
+adding files as above, but you can also create a useful skeleton talk
+like this:
+
+ mkdir talk
+ cd talk
+ techtalk-pse --new
+
+The C<--new> flag will refuse to overwrite any existing files, so you
+should run it in an empty directory.
+
+=head2 DISPLAYING AN EXISTING TALK
+
+To display or run a talk, change into the directory containing all
+those files and run the C<techtalk-pse> command:
 
  cd /path/to/talk/; techtalk-pse
 
@@ -100,6 +128,16 @@ my $last;
 Start at the last slide.
 
 You cannot use this with the B<-n> / B<--start> option.
+
+=cut
+
+my $new;
+
+=item B<--new>
+
+Create a new outline talk in an empty directory.
+
+This refuses to overwrite existing files.
 
 =cut
 
@@ -148,6 +186,7 @@ GetOptions ("help|?" => \$help,
             "last" => \$last,
             "mozembed" => \$mozembed,
             "n=s" => \$start,
+            "new" => \$new,
             "splash!" => \$splash,
             "start=s" => \$start,
             "verbose" => \$verbose,
@@ -187,6 +226,144 @@ if (@ARGV > 0) {
 # which is inherited by all the scripts.
 my $talkdir = getcwd;
 $ENV{talkdir} = $talkdir;
+
+# Create a new talk (--new flag).
+if ($new) {
+    my %files = (
+        "essay.txt" => {
+            mode => 0644,
+            desc => "essay and background notes",
+            c => 'Start by writing your thoughts in this file as an essay.
+
+You can then provide this as extra background reading material
+for your audience after the talk.'
+        },
+
+        "0010-introduction.html" => {
+            mode => 0644,
+            desc => "title slide",
+            c => '<link rel="stylesheet" href="style.css" type="text/css"/>
+<script src="code.js" type="text/javascript"></script>
+
+<div class="titlepage">
+<p>A Technical Talk</p>
+<author>by John Smith (jsmith@example.com)</author>
+</div>'
+        },
+
+        "0500-demonstration.html" => {
+            mode => 0644,
+            desc => "intro to demonstration slide",
+            c => '<link rel="stylesheet" href="style.css" type="text/css"/>
+<script src="code.js" type="text/javascript"></script>
+
+<h1>Demonstration</h1>
+
+<p>The next slide demonstrates a gnome terminal.</p>
+
+<p>Hit the UP arrow to access the preloaded history.</p>'
+        },
+
+        "0510-demonstration.sh" => {
+            mode => 0755,
+            desc => "shell demonstration slide",
+            c => '#!/bin/bash -
+source functions
+add_history ls -l
+add_history virt-df -a
+terminal --title="Demonstration terminal"'
+        },
+
+        "9900-conclusion.html" => {
+            mode => 0644,
+            desc => "last slide",
+            c => '<link rel="stylesheet" href="style.css" type="text/css"/>
+<script src="code.js" type="text/javascript"></script>
+
+<h1>Conclusions</h1>
+
+<p>The conclusion page</p>'
+        },
+
+        "functions" => {
+            mode => 0644,
+            desc => "shell script helper functions",
+            c => '# -*- shell-script -*-
+
+# Place any local environment variables and settings in "local".
+if [ -f local ]; then source local; fi
+
+export PS1=\'\\$ \'
+
+export HISTFILE=$talkdir/history
+
+rm -f $HISTFILE
+touch $HISTFILE
+
+add_history ()
+{
+    echo "$@" >> $HISTFILE
+}
+
+# Note: If you hand-configure gnome-terminal by adding a
+# new profile (eg. with larger fonts) then you can use that
+# profile here by replacing the --window flag with
+# --window-with-profile=ProfileName
+
+terminal ()
+{
+    chmod -w $HISTFILE
+    exec \\
+        gnome-terminal \\
+        --window \\
+        --geometry=+140+64 \\
+        --hide-menubar \\
+        --disable-factory \\
+        -e \'/bin/bash --norc\' \\
+        "$@"
+}
+'
+        },
+
+        "style.css" => {
+            mode => 0644,
+            desc => "HTML stylesheet",
+            c => 'body {
+    font-size: 28pt;
+    font-family: liberation, helvetica;
+}
+
+h1 {
+    font-size: 48px;
+    top: 8;
+    left: 0;
+    border-bottom: 2px solid #ccc;
+}
+
+div.titlepage {
+    margin-top: 100px;
+    text-align: center;
+}
+'
+        },
+    );
+
+    # Refuse to overwrite existing files.
+    foreach (sort keys %files) {
+        die "techtalk-pse: refusing to overwrite '$_'\n" if -f $_;
+    }
+
+    # Write the files.
+    foreach (sort keys %files) {
+        print "writing $_ ($files{$_}{desc}) ...\n";
+        open FILE, ">$_" or die "$_: open: $!";
+        print FILE $files{$_}{c} or die "$_: print: $!";
+        close FILE or die "$_: close: $!";
+        chmod $files{$_}{mode}, $_ or die "$_: chmod: $!";
+    }
+
+    exit 0;
+}
 
 # Get the files.
 my @files;
@@ -543,18 +720,16 @@ __END__
 L</WHAT MAKES A GOOD TALK> below].
 
 To start your talk, all you have to do is to make a new directory
-somewhere:
+somewhere and run Tech Talk PSE with the C<--new> flag to create an
+outline:
 
  mkdir talk
  cd talk
+ techtalk-pse --new
 
 A tech talk consists of HTML files ("slides") and shell scripts.  The
 filenames must start with a number, followed optionally by a
-description, followed by the extension (C<.html> or C<.sh>).  So to
-start our talk with two slides:
-
- echo "This is the introduction" > 0010-introduction.html
- echo "This is the second slide" > 0020-second.html
+description, followed by the extension (C<.html> or C<.sh>).
 
 To run it, run the command from within the talk directory:
 
