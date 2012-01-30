@@ -29,7 +29,9 @@ use Getopt::Long;
 use Cwd qw(getcwd abs_path);
 use Glib qw(TRUE FALSE);
 use Gtk2 -init;
-use Gtk2::MozEmbed;
+use Gtk2::Gdk::Keysyms;
+use Gtk2::WebKit;
+use Gnome2::Vte;
 
 =encoding utf8
 
@@ -67,38 +69,10 @@ there is a discussion on L<WHAT MAKES A GOOD TALK>.
 
 =head1 RUNNING THE TOOL FROM THE COMMAND LINE
 
-=head2 CREATING A NEW TALK
-
-Tech Talk PSE talks are just directories containing C<*.html> and
-C<*.sh> (shell script) files:
-
- 0010-introduction.html
- 0500-demonstration.sh
- 9900-conclusion.html
-
-The filenames that Tech Talk PSE considers to be slides have to match
-the regular expression:
-
- ^(\d+)(?:-.*)\.(html|sh)$
-
-(any other file or subdirectory is ignored).  Shell scripts I<must>
-be executable.
-
-You can create a new talk just by creating an empty directory and
-adding files as above, but you can also create a useful skeleton talk
-like this:
-
- mkdir talk
- cd talk
- techtalk-pse --new
-
-The C<--new> flag will refuse to overwrite any existing files, so you
-should run it in an empty directory.
-
-=head2 DISPLAYING AN EXISTING TALK
-
-To display or run a talk, change into the directory containing all
-those files and run the C<techtalk-pse> command:
+A Tech Talk PSE talk is not a single file, but a directory full of
+files.  (If you want to start a new talk, see the L</TUTORIAL> section
+below).  To display or run the talk, change into the directory
+containing all those files and run the C<techtalk-pse> command:
 
  cd /path/to/talk/; techtalk-pse
 
@@ -131,16 +105,6 @@ You cannot use this with the B<-n> / B<--start> option.
 
 =cut
 
-my $new;
-
-=item B<--new>
-
-Create a new outline talk in an empty directory.
-
-This refuses to overwrite existing files.
-
-=cut
-
 my $start;
 
 =item B<-n SLIDE> | B<--start SLIDE>
@@ -151,15 +115,6 @@ I<00010-introduction.html>, you could use I<-n 00010> or I<-n 00010-intro>,
 or give the full filename I<-n 00010-introduction.html>.
 
 The default is to start at the first slide in the talk.
-
-=cut
-
-my $splash = 1;
-
-=item B<--no-splash>
-
-Don't display the initial "splash" screen which advertises Tech Talk
-PSE to your audience.  Just go straight into the talk.
 
 =cut
 
@@ -180,14 +135,9 @@ Display version number and exit.
 
 =cut
 
-my $mozembed;
-
 GetOptions ("help|?" => \$help,
             "last" => \$last,
-            "mozembed" => \$mozembed,
             "n=s" => \$start,
-            "new" => \$new,
-            "splash!" => \$splash,
             "start=s" => \$start,
             "verbose" => \$verbose,
             "version" => \$version,
@@ -205,7 +155,7 @@ if ($version) {
 die "techtalk-pse: cannot use --start and --last options together\n"
     if defined $last && defined $start;
 
-die "techtalk-pse: too many arguments\n" if !$mozembed && @ARGV >= 2;
+die "techtalk-pse: too many arguments\n" if @ARGV >= 2;
 
 # Get the true name of the program.
 $0 = abs_path ($0);
@@ -227,147 +177,123 @@ if (@ARGV > 0) {
 my $talkdir = getcwd;
 $ENV{talkdir} = $talkdir;
 
-# Create a new talk (--new flag).
-if ($new) {
-    my %files = (
-        "essay.txt" => {
-            mode => 0644,
-            desc => "essay and background notes",
-            c => 'Start by writing your thoughts in this file as an essay.
-
-You can then provide this as extra background reading material
-for your audience after the talk.'
-        },
-
-        "0010-introduction.html" => {
-            mode => 0644,
-            desc => "title slide",
-            c => '<link rel="stylesheet" href="style.css" type="text/css"/>
-<script src="code.js" type="text/javascript"></script>
-
-<div class="titlepage">
-<p>A Technical Talk</p>
-<author>by John Smith (jsmith@example.com)</author>
-</div>'
-        },
-
-        "0500-demonstration.html" => {
-            mode => 0644,
-            desc => "intro to demonstration slide",
-            c => '<link rel="stylesheet" href="style.css" type="text/css"/>
-<script src="code.js" type="text/javascript"></script>
-
-<h1>Demonstration</h1>
-
-<p>The next slide demonstrates a gnome terminal.</p>
-
-<p>Hit the UP arrow to access the preloaded history.</p>'
-        },
-
-        "0510-demonstration.sh" => {
-            mode => 0755,
-            desc => "shell demonstration slide",
-            c => '#!/bin/bash -
-source functions
-add_history ls -l
-add_history virt-df -a
-terminal --title="Demonstration terminal"'
-        },
-
-        "9900-conclusion.html" => {
-            mode => 0644,
-            desc => "last slide",
-            c => '<link rel="stylesheet" href="style.css" type="text/css"/>
-<script src="code.js" type="text/javascript"></script>
-
-<h1>Conclusions</h1>
-
-<p>The conclusion page</p>'
-        },
-
-        "functions" => {
-            mode => 0644,
-            desc => "shell script helper functions",
-            c => '# -*- shell-script -*-
-
-# Place any local environment variables and settings in "local".
-if [ -f local ]; then source local; fi
-
-export PS1=\'\\$ \'
-
-export HISTFILE=$talkdir/history
-
-rm -f $HISTFILE
-touch $HISTFILE
-
-add_history ()
-{
-    echo "$@" >> $HISTFILE
-}
-
-# Note: If you hand-configure gnome-terminal by adding a
-# new profile (eg. with larger fonts) then you can use that
-# profile here by replacing the --window flag with
-# --window-with-profile=ProfileName
-
-terminal ()
-{
-    chmod -w $HISTFILE
-    exec \\
-        gnome-terminal \\
-        --window \\
-        --geometry=+140+64 \\
-        --hide-menubar \\
-        --disable-factory \\
-        -e \'/bin/bash --norc\' \\
-        "$@"
-}
-'
-        },
-
-        "style.css" => {
-            mode => 0644,
-            desc => "HTML stylesheet",
-            c => 'body {
-    font-size: 28pt;
-    font-family: liberation, helvetica;
-}
-
-h1 {
-    font-size: 48px;
-    top: 8;
-    left: 0;
-    border-bottom: 2px solid #ccc;
-}
-
-div.titlepage {
-    margin-top: 100px;
-    text-align: center;
-}
-'
-        },
-    );
-
-    # Refuse to overwrite existing files.
-    foreach (sort keys %files) {
-        die "techtalk-pse: refusing to overwrite '$_'\n" if -f $_;
-    }
-
-    # Write the files.
-    foreach (sort keys %files) {
-        print "writing $_ ($files{$_}{desc}) ...\n";
-        open FILE, ">$_" or die "$_: open: $!";
-        print FILE $files{$_}{c} or die "$_: print: $!";
-        close FILE or die "$_: close: $!";
-        chmod $files{$_}{mode}, $_ or die "$_: chmod: $!";
-    }
-
-    exit 0;
-}
-
 # Get the files.
 my @files;
 my %files;
+my $current;
+my $pid;
+my $pipeline;
+
+&reread_directory ();
+
+print STDERR "read ", 0+@files, " files\n" if $verbose;
+if (@files == 0) {
+    warn "techtalk-pse: no files found, continuing anyway ...\n"
+}
+
+my $w = Gtk2::Window->new ();
+my $vbox = Gtk2::VBox->new ();
+my $webkit = Gtk2::WebKit::WebView->new ();
+my $vte = Gnome2::Vte::Terminal->new ();
+my $notebook = Gtk2::Notebook->new ();
+my $splash = make_splash_page ();
+
+my $webkitscroll = Gtk2::ScrolledWindow->new ();
+$webkitscroll->add ($webkit);
+$webkitscroll->set_policy('automatic', 'automatic');
+
+my $webkitpage = $notebook->append_page ($webkitscroll);
+my $vtepage = $notebook->append_page ($vte);
+my $splashpage = $notebook->append_page ($splash);
+
+my ($bbox, $bquit, $breload, $bnext, $bback, $brestart) = make_button_bar ();
+
+$vbox->pack_start($bbox, 0, 0, 0);
+$vbox->pack_start($notebook, 1, 1, 0);
+
+$notebook->set_show_tabs(0);
+$notebook->set_show_border(0);
+
+# Default font size is almost certainly too small
+# for audience to see.
+# XXX we should make font size configurable via
+# @ARGV.
+# XXX any way we can scale WebKit programmatically
+# to set base size which CSS is relative to ?
+# NB careful setting it too big, because it will
+# force a min size on the terminal. Scaling 1.3
+# is biggest we can do while fitting 1024x768
+my $font = $vte->get_font;
+$font->set_size($font->get_size * 1.3);
+
+# When an external command exits, automatically
+# go to the next slide
+$vte->signal_connect (
+    'child-exited' => sub {
+	if ($pid) {
+	    $pid = 0;
+	    &switch_slide("NEXT");
+	}
+    });
+
+# Exit if the window is closed
+$w->signal_connect (
+    destroy => sub {
+	Gtk2->main_quit;
+	return FALSE;
+    });
+
+# Handle left/right arrows, page up/down & home/end
+# as slide navigation commands. But not when there
+# is a shell running
+$w->signal_connect (
+    'key-press-event' => sub {
+	my $src = shift;
+	my $ev = shift;
+
+	# If a shell is running, don't trap keys
+	if ($pid) {
+	    return 0;
+	}
+
+	if ($ev->keyval == $Gtk2::Gdk::Keysyms{Right} ||
+	    $ev->keyval == $Gtk2::Gdk::Keysyms{Page_Down}) {
+	    &switch_slide("NEXT");
+	    return 1;
+	} elsif ($ev->keyval == $Gtk2::Gdk::Keysyms{Left} ||
+		 $ev->keyval == $Gtk2::Gdk::Keysyms{Page_Up}) {
+	    &switch_slide("PREV");
+	    return 1;
+	} elsif ($ev->keyval == $Gtk2::Gdk::Keysyms{Home}) {
+	    &switch_slide("FIRST");
+	    return 1;
+	} elsif ($ev->keyval == $Gtk2::Gdk::Keysyms{End}) {
+	    &switch_slide("LAST");
+	    return 1;
+	} elsif ($ev->keyval == $Gtk2::Gdk::Keysyms{q} ||
+		 $ev->keyval == $Gtk2::Gdk::Keysyms{Escape}) {
+	    Gtk2->main_quit;
+	    return 1;
+	}
+	return 0;
+    });
+
+
+$w->add ($vbox);
+$w->show_all ();
+
+$w->set_decorated (0);
+$w->fullscreen ();
+$w->move (0,0);
+
+my $scr = $w->get_screen();
+
+&update_slide();
+
+Gtk2->main();
+
+exit 0;
+
 sub reread_directory
 {
     @files = ();
@@ -395,233 +321,191 @@ sub reread_directory
         $files[0]->{first} = 1;
         $files[$#files]->{last} = 1;
     }
-}
-reread_directory ();
-print STDERR "read ", 0+@files, " files\n" if $verbose;
-if (@files == 0) {
-    warn "techtalk-pse: no files found, continuing anyway ...\n"
-}
 
-# Run with --mozembed: see below.
-run_mozembed () if $mozembed;
-
-# Else, normal run of the program ...
-
-# Work out what slide we're starting on.
-my $current;
-if (defined $current) {
-    die "start slide not implemented yet XXX"
-}
-elsif (@files) {
-    $current = $files[0];
-}
-# else $current is undefined
-
-if ($splash) {
-    my $w = Gtk2::AboutDialog->new;
-    $w->set_authors ("Richard W.M. Jones");
-    $w->set_comments (
-        "Superior technical demonstration software\n"
-        );
-    $w->set_program_name ("Tech Talk Platinum Supreme Edition (PSE)");
-    $w->set_version ("@VERSION@");
-    $w->set_website ("http://people.redhat.com/~rjones");
-    $w->set_license ("GNU General Public License v2 or above");
-    $w->run;
-    print STDERR "calling \$w->destroy on about dialog\n" if $verbose;
-    $w->destroy;
-
-    # The dialog doesn't really get destroyed here.  We have
-    # to add this hack to really destroy it.
-    Glib::Idle->add (sub { Gtk2->main_quit; return FALSE; });
-    Gtk2->main;
+    # Work out what slide we're starting on.
+    if (@files && !$current) {
+	if ($start) {
+	    foreach my $file (@files) {
+		if ($file->{name} =~ /^$start/) {
+		    $current = $file;
+		    last;
+		}
+	    }
+	} elsif ($last) {
+	    $current = $files[$#files];
+	}
+	if (!$current) {
+	    $current = $files[0];
+	}
+    }
 }
 
-MAIN: while (1) {
-    if (defined $current) {
-        my $go = show_slide ($current);
-        if (defined $go) {
-            print STDERR "go = $go\n" if $verbose;
-            last MAIN if $go eq "QUIT";
+sub run_process
+{
+    $pid = $vte->fork_command("./" . $current->{name}, [], [], undef, 0, 0, 0);
+}
 
-            my $i = $current->{i};
-            print STDERR "i = $i\n" if $verbose;
-            $i-- if $go eq "PREV" && $i > 0;
-            $i++ if $go eq "NEXT" && $i+1 < @files;
-            $i = 0 if $go eq "FIRST";
-            $i = $#files if $go eq "LAST";
-            $i = $1 if $go =~ /^I_(\d+)$/;
-            $current = $files[$i];
-        }
+sub kill_process
+{
+    print STDERR "sending TERM signal to process group $pid\n"
+	if $verbose;
+    kill "TERM", -$pid;
+
+    # Clears out any current displayed text
+    $vte->reset(1, 1);
+    $vte->set_default_colors();
+    $pid = 0;
+}
+
+sub switch_slide
+{
+    my $action = shift;
+
+    if ($pid) {
+	kill_process ();
+    }
+    if ($pipeline) {
+	$pipeline->set_state('ready');
+	$pipeline = undef;
+    }
+    print STDERR "action = $action\n" if $verbose;
+
+    my $i = defined $current ? $current->{i} : 0;
+
+    print STDERR "i = $i\n" if $verbose;
+    if ($action eq "PREV") {
+	if (defined $current) {
+	    $i--;
+	} else {
+	    $i = $#files;
+	}
+    } elsif ($action eq "NEXT") {
+	$i++;
+    } elsif ($action eq "FIRST") {
+	$i = 0;
+    } elsif ($action eq "LAST") {
+	$i = $#files;
+    } elsif ($action =~ /^I_(\d+)$/) {
+	$i = $1;
+    }
+
+    $i = 0 if $i < 0;
+    if ($i > $#files) {
+	$current = undef;
     } else {
-        print "No slides found.  Press any key to reload directory ...\n";
-        $_ = <STDIN>;
+	$current = $files[$i];
     }
 
-    # Reread directory between slides.
-    reread_directory ();
+    &update_slide ();
 
-    if (defined $current && !exists $files{$current->{name}}) {
-        # Current slide was deleted.
-        undef $current;
-        $current = $files[0] if @files;
+}
+
+sub update_slide
+{
+    if ($current) {
+	# Display an HTML page.
+	if ($current->{ext} eq "html") {
+	    $notebook->set_current_page ($webkitpage);
+	    my $name = $current->{name};
+	    my $url = "file://$talkdir/$name";
+
+	    $webkit->load_uri ($url);
+	    $webkit->grab_focus ();
+	}
+	# Run a shell command.
+	elsif ($current->{ext} eq "sh") {
+	    $notebook->set_current_page ($vtepage);
+	    $vte->grab_focus ();
+	    run_process ();
+	}
+    } else {
+	$notebook->set_current_page ($splashpage);
+    }
+
+    if ($pid) {
+	$brestart->show ();
+    } else {
+	$brestart->hide ();
+    }
+
+    if (defined $current) {
+	$bquit->hide ();
+	$breload->hide ();
+	$bnext->set_sensitive (1);
+	$bback->set_sensitive (!exists $current->{first});
+    } else {
+	$bquit->show ();
+	if (@files) {
+	    $breload->hide ();
+	} else {
+	    $breload->show ();
+	}
+	$bnext->set_sensitive (0);
+	$bback->set_sensitive (int(@files));
     }
 }
 
-sub show_slide
-{
-    my $slide = shift;
 
-    # Display an HTML page.
-    if ($slide->{ext} eq "html") {
-        # MozEmbed is incredibly crashy, so we run ourself as a
-        # subprocess, so when it segfaults we don't care.  If all goes
-        # well and it doesn't crash, it should print a line 'RESULT FOO'
-        # where 'FOO' is the instruction (eg. 'NEXT', 'PREV', 'QUIT' etc).
-        my @cmd = ($0, "--mozembed", $talkdir, $slide->{name});
-	print STDERR "running subcommand: ", join (" ", @cmd), "\n"
-	    if $verbose;
-        open CMD, "-|", @cmd
-            or die "failed to execute subcommand: ", join(" ", @cmd), ": $!\n";
-        my $r;
-        while (<CMD>) {
-            if (/^RESULT ([A-Z]+.*)/) {
-                $r = $1;
-                print STDERR "subcommand result: $r\n" if $verbose;
-                last;
-            }
-        }
-        # No RESULT line?  Subcommand probably segfaulted, just
-        # continue to next slide.
-        $r ||= "NEXT";
-        return $r;
-    }
-    # Run a shell command.
-    elsif ($slide->{ext} eq "sh") {
-        my $pid;
-        # http://docstore.mik.ua/orelly/perl/cookbook/ch10_17.htm
-        local *run_process = sub {
-            $pid = fork ();
-            die "fork: $!" unless defined $pid;
-            unless ($pid) {
-                # Child.
-                POSIX::setsid ();
-                exec ("./".$slide->{name});
-                die "failed to execute command: ", $slide->{name}, ": $!";
-            }
-            # Parent returns.
-        };
-        local *kill_process = sub {
-            print STDERR "sending TERM signal to process group $pid\n"
-                if $verbose;
-            kill "TERM", -$pid;
-        };
-        run_process ();
+sub make_splash_page {
+    my $box = Gtk2::VBox->new();
 
-        my $r = "NEXT";
+    my $title = Gtk2::Label->new ("<b><span size='x-large'>Tech Talk Platinum Supreme Edition (PSE)</span></b>");
+    $title->set_use_markup (1);
 
-        my $w = Gtk2::Window->new ();
+    $box->pack_start ($title, 0, 1, 0);
 
-        my $s = $w->get_screen;
-        $w->set_default_size ($s->get_width, -1);
-        $w->move (0, 0);
-        $w->set_decorated (0);
+    my $vers = Gtk2::Label->new ("<b><span size='large'>@VERSION@</span></b>");
+    $vers->set_use_markup (1);
+    $box->pack_start ($vers, 0, 1, 0);
 
-        my $bbox =
-            make_button_bar ((exists $slide->{first}),
-                             (exists $slide->{last}),
-                             sub { $r = $_[0]; $w->destroy },
-                             restart => sub {
-                                 kill_process ();
-                                 run_process ();
-                             },
-            );
+    my $tagline = Gtk2::Label->new ("<i><span size='large'>Superior technical demonstration software</span></i>");
+    $tagline->set_use_markup (1);
 
-        $w->add ($bbox);
+    $box->pack_start ($tagline, 0, 1, 0);
+    $box->pack_start (Gtk2::Label->new (""), 0, 1, 0);
+    $box->pack_start (Gtk2::Label->new ("Author: Richard W.M. Jones"), 0, 1, 0);
 
-        $w->signal_connect (destroy => sub {
-            Gtk2->main_quit;
-            return FALSE;
-        });
-        $w->show_all ();
+    my $url = Gtk2::Label->new ("<a href='http://people.redhat.com/~rjones'>http;//people.redhat.com/~rjones/</a>");
+    $url->set_use_markup (1);
+    $box->pack_start ($url, 0, 1, 0);
+    $box->pack_start (Gtk2::Label->new ("GNU General Public License v2 or above"), 0, 1, 0);
 
-        Gtk2->main;
-
-        kill_process ();
-        print STDERR "returning r=$r\n" if $verbose;
-        return $r;
-    }
-}
-
-# If invoked with the --mozembed parameter then we just display a
-# single page.  This is just to prevent crashes in MozEmbed from
-# killing the whole program.
-sub run_mozembed
-{
-    my $w = Gtk2::Window->new ();
-    my $vbox = Gtk2::VBox->new ();
-    my $moz = Gtk2::MozEmbed->new ();
-
-    reread_directory ();
-
-    my $name = $ARGV[1];
-    $current = $files{$name};
-    my $url = "file://$talkdir/$name";
-
-    my $bbox =
-        make_button_bar ($current->{first}, $current->{last},
-                         sub { print "RESULT ", $_[0], "\n"; $w->destroy }
-        );
-
-    $vbox->pack_start ($bbox, 0, 0, 0);
-    $vbox->add ($moz);
-    $w->fullscreen ();
-    #$w->set_default_size (640, 480);
-    $w->add ($vbox);
-
-    $w->signal_connect (destroy => sub {
-        Gtk2->main_quit;
-        return FALSE;
-    });
-    $w->show_all ();
-
-    $moz->load_url ($url);
-
-    Gtk2->main;
-
-    exit 0;
+    return $box;
 }
 
 # Make the standard button bar across the top of the page.
 sub make_button_bar
 {
-    my $first = shift;
-    my $last = shift;
-    my $cb = shift;
-    my %params = @_;
-
     my $bbox = Gtk2::Toolbar->new ();
     $bbox->set_style ("GTK_TOOLBAR_TEXT");
 
     my $i = 0;
 
+    my $bquit = Gtk2::ToolButton->new (undef, "Quit");
+    $bquit->signal_connect (clicked => sub { Gtk2->main_quit });
+    $bbox->insert ($bquit, $i++);
+
+    my $breload = Gtk2::ToolButton->new (undef, "Reload");
+    $breload->signal_connect (clicked => sub { reread_directory () });
+    $bbox->insert ($breload, $i++);
+
     my $bnext = Gtk2::ToolButton->new (undef, "Next slide");
-    $bnext->signal_connect (clicked => sub { &$cb ("NEXT") });
-    $bnext->set_sensitive (!$last);
+    $bnext->signal_connect (clicked => sub { &switch_slide ("NEXT") });
     $bbox->insert ($bnext, $i++);
 
     my $bback = Gtk2::ToolButton->new (undef, "Back");
-    $bback->signal_connect (clicked => sub { &$cb ("PREV") });
-    $bback->set_sensitive (!$first);
+    $bback->signal_connect (clicked => sub { &switch_slide ("PREV") });
     $bbox->insert ($bback, $i++);
 
-    if (exists $params{restart}) {
-        $bbox->insert (Gtk2::SeparatorToolItem->new (), $i++);
+    $bbox->insert (Gtk2::SeparatorToolItem->new (), $i++);
 
-        my $brestart = Gtk2::ToolButton->new (undef, "Kill & restart");
-        $brestart->signal_connect (clicked => $params{restart});
-        $bbox->insert ($brestart, $i++);
-    }
+    my $brestart = Gtk2::ToolButton->new (undef, "Kill & restart");
+    $brestart->signal_connect (clicked =>
+			       sub {
+				   kill_process ();
+				   run_process ();
+			       });
+    $bbox->insert ($brestart, $i++);
 
     my $sep = Gtk2::SeparatorToolItem->new ();
     $sep->set_expand (TRUE);
@@ -630,56 +514,56 @@ sub make_button_bar
 
     my $optsmenu = Gtk2::Menu->new ();
 
-    my $bfirst = Gtk2::MenuItem->new ("First slide");
-    $bfirst->signal_connect (activate => sub { \&$cb ("FIRST") });
-    $bfirst->show ();
-    $optsmenu->append ($bfirst);
+    my $mfirst = Gtk2::MenuItem->new ("First slide");
+    $mfirst->signal_connect (activate => sub { &switch_slide ("FIRST") });
+    $mfirst->show ();
+    $optsmenu->append ($mfirst);
 
-    my $blast = Gtk2::MenuItem->new ("Last slide");
-    $blast->signal_connect (activate => sub { \&$cb ("LAST") });
-    $blast->show ();
-    $optsmenu->append ($blast);
+    my $mlast = Gtk2::MenuItem->new ("Last slide");
+    $mlast->signal_connect (activate => sub { &switch_slide ("LAST") });
+    $mlast->show ();
+    $optsmenu->append ($mlast);
 
     my $slidesmenu = Gtk2::Menu->new ();
     foreach (@files) {
         my $item = Gtk2::MenuItem->new ($_->{name});
         my $index = $_->{i};
-        $item->signal_connect (activate => sub { \&$cb ("I_$index") });
+        $item->signal_connect (activate => sub { &switch_slide ("I_$index") });
         $item->set_sensitive ($current->{i} != $index);
         $item->show ();
         $slidesmenu->append ($item);
     }
 
-    my $bslides = Gtk2::MenuItem->new ("Slides");
-    $bslides->set_submenu ($slidesmenu);
-    $bslides->show ();
-    $optsmenu->append ($bslides);
+    my $mslides = Gtk2::MenuItem->new ("Slides");
+    $mslides->set_submenu ($slidesmenu);
+    $mslides->show ();
+    $optsmenu->append ($mslides);
 
     my $sep2 = Gtk2::SeparatorMenuItem->new ();
     $sep2->show ();
     $optsmenu->append ($sep2);
 
-    my $bscreenshot = Gtk2::MenuItem->new ("Take a screenshot");
-    $bscreenshot->signal_connect (activate => sub { screenshot () });
-    $bscreenshot->show ();
-    $optsmenu->append ($bscreenshot);
+    my $mscreenshot = Gtk2::MenuItem->new ("Take a screenshot");
+    $mscreenshot->signal_connect (activate => sub { screenshot () });
+    $mscreenshot->show ();
+    $optsmenu->append ($mscreenshot);
 
     my $sep3 = Gtk2::SeparatorMenuItem->new ();
     $sep3->show ();
     $optsmenu->append ($sep3);
 
-    my $bquit = Gtk2::MenuItem->new ("Quit");
-    $bquit->signal_connect (activate => sub { \&$cb ("QUIT") });
-    $bquit->show ();
-    $optsmenu->append ($bquit);
+    my $mquit = Gtk2::MenuItem->new ("Quit");
+    $mquit->signal_connect (activate => sub { Gtk2->main_quit });
+    $mquit->show ();
+    $optsmenu->append ($mquit);
 
-    my $boptions = Gtk2::MenuToolButton->new (undef, "Options");
+    my $moptions = Gtk2::MenuToolButton->new (undef, "Options");
     #$boptions->signal_connect (clicked =>
     #  sub { $optsmenu->popup (undef, undef, undef, undef, ?, ?) } );
-    $bbox->insert ($boptions, $i++);
-    $boptions->set_menu ($optsmenu);
+    $bbox->insert ($moptions, $i++);
+    $moptions->set_menu ($optsmenu);
 
-    return $bbox;
+    return ($bbox, $bquit, $breload, $bnext, $bback, $brestart);
 }
 
 # Try running the external "gnome-screenshot" program, if it's
@@ -720,16 +604,18 @@ __END__
 L</WHAT MAKES A GOOD TALK> below].
 
 To start your talk, all you have to do is to make a new directory
-somewhere and run Tech Talk PSE with the C<--new> flag to create an
-outline:
+somewhere:
 
  mkdir talk
  cd talk
- techtalk-pse --new
 
 A tech talk consists of HTML files ("slides") and shell scripts.  The
 filenames must start with a number, followed optionally by a
-description, followed by the extension (C<.html> or C<.sh>).
+description, followed by the extension (C<.html> or C<.sh>).  So to
+start our talk with two slides:
+
+ echo "This is the introduction" > 0010-introduction.html
+ echo "This is the second slide" > 0020-second.html
 
 To run it, run the command from within the talk directory:
 
