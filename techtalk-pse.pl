@@ -3,7 +3,7 @@
 # @configure_input@
 #
 # Tech Talk PSE
-# Copyright (C) 2010 Red Hat Inc.
+# Copyright (C) 2010-2012 Red Hat Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -69,10 +69,25 @@ there is a discussion on L<WHAT MAKES A GOOD TALK>.
 
 =head1 RUNNING THE TOOL FROM THE COMMAND LINE
 
-A Tech Talk PSE talk is not a single file, but a directory full of
-files.  (If you want to start a new talk, see the L</TUTORIAL> section
-below).  To display or run the talk, change into the directory
-containing all those files and run the C<techtalk-pse> command:
+Tech Talk PSE talks are just directories containing C<*.html> and
+C<*.sh> (shell script) files:
+
+ 0010-introduction.html
+ 0500-demonstration.sh
+ 9900-conclusion.html
+
+The filenames that Tech Talk PSE considers to be slides have to match
+the regular expression:
+
+ ^(\d+)(?:-.*)\.(html|sh)$
+
+(any other file or subdirectory is ignored).  Shell scripts I<must>
+be executable.
+
+=head2 DISPLAYING AN EXISTING TALK
+
+To display or run a talk, change into the directory containing all
+those files and run the C<techtalk-pse> command:
 
  cd /path/to/talk/; techtalk-pse
 
