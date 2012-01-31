@@ -15,7 +15,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-AC_INIT([techtalk-pse],[1.0.1])
+dnl NOTE: 1.x where x is odd  = development
+dnl       1.x where x is even = stable
+AC_INIT([techtalk-pse],[1.1.0])
 AM_INIT_AUTOMAKE([foreign])
 
 dnl Check for pod2man and pod2text.
