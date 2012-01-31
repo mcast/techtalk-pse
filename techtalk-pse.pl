@@ -69,20 +69,21 @@ there is a discussion on L<WHAT MAKES A GOOD TALK>.
 
 =head1 RUNNING THE TOOL FROM THE COMMAND LINE
 
-Tech Talk PSE talks are just directories containing C<*.html> and
-C<*.sh> (shell script) files:
+Tech Talk PSE talks are just directories containing C<*.html>,
+C<*.sh> (shell script) and C<*.term> (terminal) files:
 
  0010-introduction.html
  0500-demonstration.sh
+ 0600-command-line.term
  9900-conclusion.html
 
 The filenames that Tech Talk PSE considers to be slides have to match
 the regular expression:
 
- ^(\d+)(?:-.*)\.(html|sh)$
+ ^(\d+)(?:-.*)\.(html|sh|term)$
 
-(any other file or subdirectory is ignored).  Shell scripts I<must>
-be executable.
+(any other file or subdirectory is ignored).  Shell scripts and
+terminal files I<must> be executable.
 
 =head2 DISPLAYING AN EXISTING TALK
 
@@ -212,12 +213,14 @@ my $webkit = Gtk2::WebKit::WebView->new ();
 my $vte = Gnome2::Vte::Terminal->new ();
 my $notebook = Gtk2::Notebook->new ();
 my $splash = make_splash_page ();
+my $emptylabel = Gtk2::Label->new ();
 
 my $webkitscroll = Gtk2::ScrolledWindow->new ();
 $webkitscroll->add ($webkit);
 $webkitscroll->set_policy('automatic', 'automatic');
 
 my $webkitpage = $notebook->append_page ($webkitscroll);
+my $shpage = $notebook->append_page ($emptylabel);
 my $vtepage = $notebook->append_page ($vte);
 my $splashpage = $notebook->append_page ($splash);
 
@@ -295,13 +298,13 @@ $w->signal_connect (
 
 
 $w->add ($vbox);
+
+# This allows us to resize the window in window_in_corner().
+$w->set_geometry_hints ($w, { min_width => 100 }, qw(min-size));
+
 $w->show_all ();
 
-$w->set_decorated (0);
-$w->fullscreen ();
-$w->move (0,0);
-
-my $scr = $w->get_screen();
+window_fullscreen ();
 
 &update_slide();
 
@@ -315,13 +318,13 @@ sub reread_directory
 
     my $i = 0;
     foreach (glob ("*")) {
-        if (/^(\d+)(?:-.*)\.(html|sh)$/) {
+        if (/^(\d+)(?:-.*)\.(html|sh|term)$/) {
             print STDERR "reading $_\n" if $verbose;
 
             my $seq = $1;
             my $ext = $2;
             warn "techtalk-pse: $_: command file is not executable (+x)\n"
-                if $ext eq "sh" && ! -x $_;
+                if ($ext eq "sh" || $ext eq "term") && ! -x $_;
 
             my $h = { name => $_, seq => $1, ext => $2, i => $i };
             push @files, $h;
@@ -355,6 +358,25 @@ sub reread_directory
     }
 }
 
+sub window_fullscreen
+{
+    $w->set_decorated (0);
+    $w->fullscreen ();
+    $w->move (0,0);
+}
+
+sub window_in_corner
+{
+    $w->set_decorated (1);
+    $w->unfullscreen ();
+
+    my $root = Gtk2::Gdk->get_default_root_window ();
+    my ($width, $height) = $root->get_size;
+
+    $w->resize ($width/2, $height/4);
+    $w->move ($width/2, 64);
+}
+
 sub run_process
 {
     $pid = $vte->fork_command("./" . $current->{name}, [], [], undef, 0, 0, 0);
@@ -375,6 +397,8 @@ sub kill_process
 sub switch_slide
 {
     my $action = shift;
+
+    window_fullscreen ();
 
     if ($pid) {
 	kill_process ();
@@ -429,6 +453,13 @@ sub update_slide
 	}
 	# Run a shell command.
 	elsif ($current->{ext} eq "sh") {
+            window_in_corner ();
+
+	    $notebook->set_current_page ($shpage);
+	    run_process ();
+	}
+        # Open a VTE terminal.
+	elsif ($current->{ext} eq "term") {
 	    $notebook->set_current_page ($vtepage);
 	    $vte->grab_focus ();
 	    run_process ();
@@ -626,8 +657,8 @@ somewhere:
 
 A tech talk consists of HTML files ("slides") and shell scripts.  The
 filenames must start with a number, followed optionally by a
-description, followed by the extension (C<.html> or C<.sh>).  So to
-start our talk with two slides:
+description, followed by the extension (C<.html>, C<.sh> or C<.term>).
+So to start our talk with two slides:
 
  echo "This is the introduction" > 0010-introduction.html
  echo "This is the second slide" > 0020-second.html
@@ -737,9 +768,14 @@ either rename or make a symbolic link to the slide name:
 
 =head2 TIPS FOR WRITING SHELL SCRIPTS
 
-Make sure each C<*.sh> file you write is executable, otherwise Tech
-Talk PSE won't be able to run it.  (The program gives a warning if you
-forget this).
+Make sure each C<*.sh> or C<*.term> file you write is executable,
+otherwise Tech Talk PSE won't be able to run it.  (The program gives a
+warning if you forget this).
+
+The difference between C<*.sh> (shell script) and C<*.term> (a
+terminal script) is that a shell script runs any commands, usually
+graphical commands, whereas a terminal script runs in a full screen
+terminal.
 
 A good idea is to start each script by sourcing some common functions.
 All my scripts start with:
@@ -776,30 +812,21 @@ In C<functions>, I have:
      # when it exits.
      chmod -w $HISTFILE
  
-     # Run gnome-terminal.
-     exec \
-         gnome-terminal \
-         --window \
-         --geometry=+100+100 \
-         --hide-menubar \
-         --disable-factory \
-         -e '/bin/bash --norc' \
-         "$@"
+     # Execute a shell.
+     bash --norc "$@"
  }
 
 By initializing the shell history, during your talk you can rapidly
 recall commands to start parts of the demonstration just by hitting
-the Up arrow.  A complete shell script from one of my talks would look
-like this:
+the Up arrow.  A complete terminal script from one of my talks would
+look like this:
 
  #!/bin/bash -
  source functions
  add_history guestfish -i debian.img
- terminal --title="Examining a Debian guest image in guestfish"
+ terminal
 
-This is just a starting point for your own scripts.  You may want to
-use a different terminal, such as xterm, and you may want to adjust
-terminal fonts.
+This is just a starting point for your own scripts.
 
 =head1 REFERENCE
 
@@ -809,7 +836,7 @@ Tech Talk PSE displays the slides in the directory in lexicographic
 order (the same order as C<LANG=C ls -1>).  Only files matching the
 following regexp are considered:
 
- ^(\d+)(?:-.*)\.(html|sh)$
+ ^(\d+)(?:-.*)\.(html|sh|term)$
 
 For future compatibility, you should ensure that every slide has a
 unique numeric part (ie. I<don't> have C<0010-aaa.html> and

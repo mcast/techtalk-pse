@@ -21,13 +21,6 @@ terminal ()
     # when it exits.
     chmod -w $HISTFILE
 
-    # Run gnome-terminal.
-    exec \
-        gnome-terminal \
-        --window \
-        --geometry=+100+100 \
-        --hide-menubar \
-        --disable-factory \
-        -e '/bin/bash --norc' \
-        "$@"
+    # Execute a shell.
+    bash --norc "$@"
 }
