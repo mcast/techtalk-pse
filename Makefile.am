@@ -23,6 +23,7 @@ EXTRA_DIST = \
 	TODO \
 	examples/simple/*.html \
 	examples/simple/*.sh \
+	examples/simple/*.term \
 	examples/simple/*.js \
 	examples/simple/*.css \
 	examples/simple/*.jpg \
