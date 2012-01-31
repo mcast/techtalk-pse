@@ -28,7 +28,7 @@ test "x$POD2TEXT" = "xno" &&
 
 dnl Check for required Perl modules.
 missing_perl_modules=no
-for pm in Pod::Usage Getopt::Long Glib Gtk2 Gtk2::MozEmbed; do
+for pm in Pod::Usage Getopt::Long Glib Gtk2 Gtk2::Gdk::Keysyms Gtk2::WebKit Gnome2::Vte; do
     AC_MSG_CHECKING([for $pm])
     if ! perl -M$pm -e1 >/dev/null 2>&1; then
         AC_MSG_RESULT([no])
