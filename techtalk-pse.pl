@@ -905,7 +905,7 @@ that it took to get them all in one place.
 
 I don't think you can get away with spending less than two full days
 preparing a talk, if you want to master the topic and draw up accurate
-slides.  Steve Jobs is reputed to spend weeks preparing his annual
+slides.  Steve Jobs was reputed to spend weeks preparing his annual
 sales talk to the Apple faithful.
 
 B<Thirdly:> Now that you're going to write your talk as an essay, what
