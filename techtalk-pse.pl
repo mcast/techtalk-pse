@@ -739,8 +739,8 @@ an C<E<lt>imgE<gt>> tag, eg:
 
  <img src="fig1.gif">
 
-Suitable tools include: XFig, GnuPlot, GraphViz, and many TeX tools
-such as PicTex and in particular TikZ.
+Suitable tools include: Inkscape, XFig, GnuPlot, GraphViz, and many
+TeX tools such as PicTex and in particular TikZ.
 
 =head2 EMBEDDING VIDEOS, ANIMATIONS, ETC.
 
