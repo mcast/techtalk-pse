@@ -936,9 +936,11 @@ The Cognitive Style of PowerPoint, Tufte, Edward R.
 
 Richard W.M. Jones L<http://people.redhat.com/~rjones/>
 
+Daniel Berrangé L<http://berrange.com/>
+
 =head1 COPYRIGHT
 
-Copyright (C) 2010 Red Hat Inc.
+Copyright (C) 2010-2012 Red Hat Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
