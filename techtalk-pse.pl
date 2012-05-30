@@ -726,9 +726,10 @@ styles as I edit them.  Just start firefox in the talk directory:
 When you edit an HTML file, click the Firefox reload button to
 immediately see your changes.
 
-Tech Talk PSE uses Mozilla embedding to display HTML, which uses the
-same Mozilla engine as Firefox, so what you should see in Firefox
-should be identical to what Tech Talk PSE displays.
+Tech Talk PSE uses WebKit embedding to display HTML.  HTML is
+standardized enough nowadays that what you see in Firefox and other
+browsers should be the same as what Tech Talk PSE displays.
+WebKit-based browsers (Chrome, Safari) should be identical.
 
 =head2 CREATING FIGURES
 
