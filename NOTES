@@ -1,0 +1,68 @@
+Logitech R400 Wireless Presenter
+--------------------------------
+
+Using xev I observed the following events.
+
+(1) ">" button:
+
+KeyPress event, serial 32, synthetic NO, window 0x1400001,
+    root 0xb2, subw 0x1400002, time 1004398300, (42,31), root:(1022,86),
+    state 0x0, keycode 117 (keysym 0xff56, Next), same_screen YES,
+    XLookupString gives 0 bytes: 
+    XmbLookupString gives 0 bytes: 
+    XFilterEvent returns: False
+
+KeyRelease event, serial 32, synthetic NO, window 0x1400001,
+    root 0xb2, subw 0x1400002, time 1004398516, (42,31), root:(1022,86),
+    state 0x0, keycode 117 (keysym 0xff56, Next), same_screen YES,
+    XLookupString gives 0 bytes: 
+    XFilterEvent returns: False
+
+(2) "<" button:
+
+KeyPress event, serial 32, synthetic NO, window 0x1400001,
+    root 0xb2, subw 0x1400002, time 1004399796, (42,31), root:(1022,86),
+    state 0x0, keycode 112 (keysym 0xff55, Prior), same_screen YES,
+    XLookupString gives 0 bytes: 
+    XmbLookupString gives 0 bytes: 
+    XFilterEvent returns: False
+
+KeyRelease event, serial 32, synthetic NO, window 0x1400001,
+    root 0xb2, subw 0x1400002, time 1004399980, (42,31), root:(1022,86),
+    state 0x0, keycode 112 (keysym 0xff55, Prior), same_screen YES,
+    XLookupString gives 0 bytes: 
+    XFilterEvent returns: False
+
+(3) "Play" button:
+
+KeyPress event, serial 32, synthetic NO, window 0x1400001,
+    root 0xb2, subw 0x1400002, time 1004405461, (42,31), root:(1022,86),
+    state 0x0, keycode 71 (keysym 0xffc2, F5), same_screen YES,
+    XLookupString gives 0 bytes: 
+    XmbLookupString gives 0 bytes: 
+    XFilterEvent returns: False
+
+KeyRelease event, serial 32, synthetic NO, window 0x1400001,
+    root 0xb2, subw 0x1400002, time 1004405637, (42,31), root:(1022,86),
+    state 0x0, keycode 71 (keysym 0xffc2, F5), same_screen YES,
+    XLookupString gives 0 bytes: 
+    XFilterEvent returns: False
+
+(4) "Stop" button:
+
+KeyPress event, serial 32, synthetic NO, window 0x1400001,
+    root 0xb2, subw 0x1400002, time 1004408253, (42,31), root:(1022,86),
+    state 0x0, keycode 60 (keysym 0x2e, period), same_screen YES,
+    XLookupString gives 1 bytes: (2e) "."
+    XmbLookupString gives 1 bytes: (2e) "."
+    XFilterEvent returns: False
+
+KeyRelease event, serial 32, synthetic NO, window 0x1400001,
+    root 0xb2, subw 0x1400002, time 1004408429, (42,31), root:(1022,86),
+    state 0x0, keycode 60 (keysym 0x2e, period), same_screen YES,
+    XLookupString gives 1 bytes: (2e) "."
+    XFilterEvent returns: False
+
+Going forwards and backwards through HTML slides works as expected.
+It doesn't do anything on VTE slides.  We should be able to make the
+forwards/backwards buttons work on VTE slides.
