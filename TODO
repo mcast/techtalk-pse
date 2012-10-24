@@ -13,6 +13,3 @@ Allow placement across monitors.
 Allow talk notes to be placed permanently on one monitor (is this
 useful though?  speaker could just open an editor with the notes
 separately).
-
-Fix Gtk2::Embed so it doesn't keep crashing and so we can
-run everything in a single process.
