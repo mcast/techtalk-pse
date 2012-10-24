@@ -48,7 +48,7 @@ KeyRelease event, serial 32, synthetic NO, window 0x1400001,
     XLookupString gives 0 bytes: 
     XFilterEvent returns: False
 
-(4) "Stop" button:
+(4) "Blank screen" button:
 
 KeyPress event, serial 32, synthetic NO, window 0x1400001,
     root 0xb2, subw 0x1400002, time 1004408253, (42,31), root:(1022,86),

@@ -13,3 +13,8 @@ Allow placement across monitors.
 Allow talk notes to be placed permanently on one monitor (is this
 useful though?  speaker could just open an editor with the notes
 separately).
+
+Allow VTE screens to be skipped when using a wireless pointer (see
+NOTES).
+
+Implement a "blank the screen" button (see NOTES).
