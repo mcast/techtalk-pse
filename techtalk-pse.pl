@@ -33,6 +33,10 @@ use Gtk2::Gdk::Keysyms;
 use Gtk2::WebKit;
 use Gnome2::Vte;
 
+use File::Temp 'tempfile';
+use File::Slurp 'slurp';
+use Text::Markdown;
+
 =encoding utf8
 
 =head1 NAME
@@ -74,13 +78,14 @@ C<*.sh> (shell script) and C<*.term> (terminal) files:
 
  0010-introduction.html
  0500-demonstration.sh
+ 0550-html-from-markdown.md
  0600-command-line.term
  9900-conclusion.html
 
 The filenames that Tech Talk PSE considers to be slides have to match
 the regular expression:
 
- ^(\d+)(?:-.*)\.(html|sh|term)$
+ ^(\d+)(?:-.*)\.(html|sh|md|term)$
 
 (any other file or subdirectory is ignored).  Shell scripts and
 terminal files I<must> be executable.
@@ -323,7 +328,7 @@ sub reread_directory
 
     my $i = 0;
     foreach (glob ("*")) {
-        if (/^(\d+)(?:-.*)\.(html|sh|term)$/) {
+        if (/^(\d+)(?:-.*)\.(html|sh|md|term)$/) {
             print STDERR "reading $_\n" if $verbose;
 
             my $seq = $1;
@@ -456,6 +461,21 @@ sub update_slide
 	    $webkit->load_uri ($url);
 	    $webkit->grab_focus ();
 	}
+        # Display a HTML page from Markdown.
+        elsif ($current->{ext} eq 'md') {
+            $notebook->set_current_page ($webkitpage);
+	    my $name = $current->{name};
+            my $text = slurp("$talkdir/$name");
+            my $html = Text::Markdown::Markdown($text);
+            my ($fh, $fn) = tempfile
+              ("$name.XXXXX", TMPDIR => 1, SUFFIX => '.html');
+            (print $fh $html) && close $fh
+              or die "Markdown to HTML failed on $fn: $!";
+            my $url = "file://$fn";
+
+	    $webkit->load_uri ($url);
+	    $webkit->grab_focus ();
+        }
 	# Run a shell command.
 	elsif ($current->{ext} eq "sh") {
             window_in_corner ();
