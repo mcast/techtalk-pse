@@ -464,14 +464,7 @@ sub update_slide
         # Display a HTML page from Markdown.
         elsif ($current->{ext} eq 'md') {
             $notebook->set_current_page ($webkitpage);
-	    my $name = $current->{name};
-            my $text = slurp("$talkdir/$name");
-            my $html = Text::Markdown::Markdown($text);
-            my ($fh, $fn) = tempfile
-              ("$name.XXXXX", TMPDIR => 1, SUFFIX => '.html');
-            (print $fh $html) && close $fh
-              or die "Markdown to HTML failed on $fn: $!";
-            my $url = "file://$fn";
+	    my $url = md2html($current->{name});
 
 	    $webkit->load_uri ($url);
 	    $webkit->grab_focus ();
@@ -514,6 +507,37 @@ sub update_slide
 	$bnext->set_sensitive (0);
 	$bback->set_sensitive (int(@files));
     }
+}
+
+
+sub md2html {
+    my ($name) = @_;
+
+    # generate HTML sub-body from slide
+    my $text = slurp("$talkdir/$name");
+    my $html = Text::Markdown::Markdown($text);
+
+    # substitute into minimal template
+    my $husk_fn = "$talkdir/markdown-husk.html";
+    $husk_fn = "$progdir/markdown-husk.html" unless -f $husk_fn;
+    if (-f $husk_fn) {
+        my $husk = slurp($husk_fn);
+        if ($husk =~ s{\bMARKDOWN\b}{$html}) {
+            $html = $husk;
+        } else {
+            warn "Husk $husk_fn subst fail";
+        }
+    }
+
+    # write to $talkdir so we don't have to make <base> explicit
+    my ($fh, $fn) = tempfile
+      (".tmp.$name.XXXXX", DIR => $talkdir,
+       SUFFIX => '.html', UNLINK => 1);
+    (print $fh $html) && close $fh
+      or die "Markdown to HTML failed on $fn: $!";
+    my $url = "file://$fn";
+
+    return $url;
 }
 
 
@@ -707,6 +731,21 @@ HTML file with a standard stylesheet and Javascript header:
 That just ensures that I can put common styling instructions for all
 my slides in a single file (C<style.css>), and I have one place where
 I can add all Javascript, if I need to use any (C<code.js>).
+
+=head3 MARKDOWN
+
+Markdown makes a quick compromise for HTML writing brevity.
+
+The markdown generator can take a file F<markdown-husk.html>
+containing the string C<MARKDOWN> and substitute the generated HTML
+into it as a template.
+
+The husk comes either from C<$talkdir>, or C<$progdir> where the
+script is kept.  The default husk follows the guidelines in L</TIPS
+FOR WRITING HTML>.
+
+Otherwise markdown files write unadorned HTML with no html/head/body
+elements or style, which works fine.
 
 =head3 BACKGROUNDS, FONTS AND LOGOS
 
