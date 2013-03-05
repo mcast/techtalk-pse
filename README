@@ -28,9 +28,12 @@ For dependencies, run './configure'.  In brief you will need:
 
   - Perl Gtk2 MozEmbed (http://search.cpan.org/~tsch/Gtk2-MozEmbed/)
 
-To build from source:
+Old instructions to build from source:
 
   autoreconf -i   # only if building from git
   ./configure
   make
   sudo make install
+
+If you have the deps installed with git-ll-cpanm (from git-yacontrib)
+then it runs in place from the repository.  This is a quick-hack mode.
