@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# -*- perl -*-
+
 # @configure_input@
 #
 # Tech Talk PSE
@@ -163,9 +163,14 @@ GetOptions ("help|?" => \$help,
 
 =cut
 
+
+my ($progdir, $PACKAGE) = $0 =~ m{^(.*)/([^/.]+)(?:\.\w+)?$}
+  or die "Cannot find self with both hands";
+my ($VERSION) = qx{ cd $progdir; git describe --tags --dirty };
+
 pod2usage (1) if $help;
 if ($version) {
-    print "@PACKAGE@ @VERSION@\n";
+    print "$PACKAGE $VERSION\n";
     exit
 }
 die "techtalk-pse: cannot use --start and --last options together\n"
@@ -500,7 +505,7 @@ sub make_splash_page {
 
     $box->pack_start ($title, 0, 1, 0);
 
-    my $vers = Gtk2::Label->new ("<b><span size='large'>@VERSION@</span></b>");
+    my $vers = Gtk2::Label->new ("<b><span size='large'>$VERSION</span></b>");
     $vers->set_use_markup (1);
     $box->pack_start ($vers, 0, 1, 0);
 
