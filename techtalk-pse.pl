@@ -34,7 +34,7 @@ use Gtk2::WebKit;
 use Gnome2::Vte;
 
 use File::Temp 'tempfile';
-use File::Slurp 'slurp';
+use File::Slurp qw( slurp write_file );
 use Text::Markdown;
 
 =encoding utf8
@@ -156,10 +156,21 @@ Display version number and exit.
 
 =cut
 
+my $just_dump = 0;
+
+=item B<--dump>
+
+Start up, dump some HTML to the subdirectory C<dump/> and then exit.
+You will need to supply extra files such as style and images.  Scripts
+and terminals will be mentioned but otherwise not included.
+
+=cut
+
 GetOptions ("help|?" => \$help,
             "last" => \$last,
             "n=s" => \$start,
             "start=s" => \$start,
+            "dump!" => \$just_dump,
             "verbose" => \$verbose,
             "version" => \$version,
     ) or pod2usage (2);
@@ -215,6 +226,11 @@ my $pipeline;
 print STDERR "read ", 0+@files, " files\n" if $verbose;
 if (@files == 0) {
     warn "techtalk-pse: no files found, continuing anyway ...\n"
+}
+
+if ($just_dump) {
+    do_dump(@files);
+    exit 0;
 }
 
 my $w = Gtk2::Window->new ();
@@ -449,6 +465,31 @@ sub switch_slide
 
 }
 
+sub do_dump {
+    my @files = @_;
+    my @index;
+    my $dumpdir = "$talkdir/dump";
+    -d $dumpdir or mkdir $dumpdir or die "mkdir $dumpdir: $!";
+    foreach my $slide (@files) {
+        my $name = $slide->{name};
+        my $outfn = $name;
+        $outfn =~ s{\.[^.]+$}{.html};
+        push @index, $outfn;
+        my $html;
+        if ($slide->{ext} eq 'html') {
+            $html = slurp("$talkdir/$name");
+        } elsif ($slide->{ext} eq 'md') {
+            $html = md2html($name, 1);
+        } else {
+            my $txt = "Slide <tt> $name </tt> doesn't render nicely to HTML.";
+            $index[-1] = \$txt;
+        }
+    }
+    my $html = join "\n", '<html><head><title>Slides index</title><body><ol>',
+      (map { ref $_ ? qq{<li> $$_ </li>} : qq{<li><a href="$_"> $_ </a> </li>}} @index), "</ol></body></html>\n";
+    write_file("$dumpdir/index.html", { atomic => 1 }, $html);
+}
+
 sub update_slide
 {
     if ($current) {
@@ -511,7 +552,7 @@ sub update_slide
 
 
 sub md2html {
-    my ($name) = @_;
+    my ($name, $content) = @_;
 
     # generate HTML sub-body from slide
     my $text = slurp("$talkdir/$name");
@@ -529,15 +570,19 @@ sub md2html {
         }
     }
 
-    # write to $talkdir so we don't have to make <base> explicit
-    my ($fh, $fn) = tempfile
-      (".tmp.$name.XXXXX", DIR => $talkdir,
-       SUFFIX => '.html', UNLINK => 1);
-    (print $fh $html) && close $fh
-      or die "Markdown to HTML failed on $fn: $!";
-    my $url = "file://$fn";
+    if ($content) {
+        return $html;
+    } else {
+        # write to $talkdir so we don't have to make <base> explicit
+        my ($fh, $fn) = tempfile
+          (".tmp.$name.XXXXX", DIR => $talkdir,
+           SUFFIX => '.html', UNLINK => 1);
+        (print $fh $html) && close $fh
+          or die "Markdown to HTML failed on $fn: $!";
+        my $url = "file://$fn";
 
-    return $url;
+        return $url;
+    }
 }
 
 
