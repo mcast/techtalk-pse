@@ -183,6 +183,7 @@ GetOptions ("help|?" => \$help,
 my ($progdir, $PACKAGE) = $0 =~ m{^(.*)/([^/.]+)(?:\.\w+)?$}
   or die "Cannot find self with both hands";
 my ($VERSION) = qx{ cd $progdir; git describe --tags --dirty };
+chomp $VERSION;
 
 pod2usage (1) if $help;
 if ($version) {
@@ -470,11 +471,12 @@ sub do_dump {
     my @index;
     my $dumpdir = "$talkdir/dump";
     -d $dumpdir or mkdir $dumpdir or die "mkdir $dumpdir: $!";
-    foreach my $slide (@files) {
+    my $last_html;
+    foreach my $slide (reverse @files) {
         my $name = $slide->{name};
         my $outfn = $name;
         $outfn =~ s{\.[^.]+$}{.html};
-        push @index, $outfn;
+        unshift @index, $outfn;
         my $html;
         if ($slide->{ext} eq 'html') {
             $html = slurp("$talkdir/$name");
@@ -482,11 +484,22 @@ sub do_dump {
             $html = md2html($name, 1);
         } else {
             my $txt = "Slide <tt> $name </tt> doesn't render nicely to HTML.";
-            $index[-1] = \$txt;
+            $index[0] = \$txt;
+            next;
         }
+        my @hdr;
+        push @hdr, qq{<a href="$last_html"> Next </a>} if defined $last_html; # no going back
+        push @hdr, qq{<a href="index.html"> Index </a>};
+        @hdr = ('<div class=dump_header>', (join ' | ', @hdr), "</div>\n");
+        $html =~ s{(<body>)}{$1 @hdr}i; # no dump_header without proper HTML
+        write_file("$dumpdir/$outfn", { atomic => 1 }, $html);
+        $last_html = $outfn;
     }
-    my $html = join "\n", '<html><head><title>Slides index</title><body><ol>',
-      (map { ref $_ ? qq{<li> $$_ </li>} : qq{<li><a href="$_"> $_ </a> </li>}} @index), "</ol></body></html>\n";
+    my $html = join "\n", "<html><head><title>Slides index</title><body class=dump_index>
+<h1> Slides dump index </h1>
+<p class=vsn> These pages were dumped from a <tt>techtalk-pse</tt> presentation by $VERSION. </p>
+<ol>",
+  (map { ref $_ ? qq{<li> $$_ </li>} : qq{<li><a href="$_"> $_ </a> </li>}} @index), "</ol></body></html>\n";
     write_file("$dumpdir/index.html", { atomic => 1 }, $html);
 }
 
